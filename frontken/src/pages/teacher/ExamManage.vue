@@ -18,6 +18,10 @@ const form = ref<any>({
   duration: 60
 })
 
+// Preview
+const previewVisible = ref(false)
+const previewData = ref<any>(null)
+
 // Compose
 const activeComposeTab = ref('manual') // 'manual' | 'auto'
 const questions = ref<any[]>([])
@@ -66,6 +70,32 @@ async function handleDelete(id: number) {
     fetchList()
   } catch {
     // Cancelled
+  }
+}
+
+async function handlePublish(row: any) {
+  try {
+    await ElMessageBox.confirm(`确认发布试卷 "${row.title}" 吗？发布后学生可见。`, '发布确认', {
+      type: 'warning',
+      confirmButtonText: '确认发布'
+    })
+    await http.post(`/api/teacher/exams/${row.id}/publish`)
+    ElMessage.success('发布成功')
+    fetchList()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.message || '发布失败')
+    }
+  }
+}
+
+async function handlePreview(row: any) {
+  try {
+    const res = await http.get(`/api/teacher/exams/${row.id}/preview`)
+    previewData.value = res.data.data
+    previewVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '加载预览失败')
   }
 }
 
@@ -163,6 +193,16 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
+          <el-button 
+            link 
+            type="success" 
+            size="small" 
+            v-if="row.status === 0"
+            @click="handlePublish(row)"
+          >
+            发布
+          </el-button>
+          <el-button link type="info" size="small" @click="handlePreview(row)">预览</el-button>
           <el-button link type="primary" size="small" @click="openCompose(row.id)">组卷</el-button>
           <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
@@ -175,6 +215,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="form.id ? '编辑试卷' : '创建试卷'"
       width="500px"
+      append-to-body
     >
       <el-form :model="form" label-width="80px">
         <el-form-item label="名称">
@@ -206,6 +247,7 @@ onMounted(() => {
       v-model="composeVisible"
       title="组卷管理"
       width="800px"
+      append-to-body
     >
       <el-tabs v-model="activeComposeTab">
         <el-tab-pane label="手动组卷" name="manual">
@@ -246,6 +288,52 @@ onMounted(() => {
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
+
+    <!-- Preview Drawer -->
+    <el-drawer v-model="previewVisible" title="试卷预览" size="600px" append-to-body>
+      <div v-if="previewData" class="preview-content">
+        <div class="p-head">
+          <h2>{{ previewData.exam.title }}</h2>
+          <div class="p-meta">
+            <el-tag effect="dark">{{ getStatusTag(previewData.exam.status).text }}</el-tag>
+            <span>总分: {{ previewData.questions.reduce((sum: number, q: any) => sum + q.score, 0) }}</span>
+            <span>题目数: {{ previewData.questions.length }}</span>
+            <span>时长: {{ previewData.exam.duration }}分钟</span>
+          </div>
+          <p class="p-desc">{{ previewData.exam.description }}</p>
+        </div>
+        
+        <div class="p-list">
+          <div v-for="(q, idx) in previewData.questions" :key="q.id" class="p-item">
+            <div class="p-item-head">
+              <span class="idx">{{ idx + 1 }}.</span>
+              <el-tag size="small" effect="plain">{{ q.type === 2 ? '多选' : '单选' }}</el-tag>
+              <el-tag size="small" type="warning" effect="plain">{{ q.score }}分</el-tag>
+              <span class="p-q-diff">难度: {{ q.difficulty }}</span>
+            </div>
+            <div class="p-item-body">
+              <div class="q-content">{{ q.content }}</div>
+              <div class="q-opts">
+                 <div v-for="opt in (typeof q.options === 'string' ? JSON.parse(q.options) : q.options)" :key="opt" class="q-opt">
+                   {{ opt }}
+                 </div>
+              </div>
+              <div class="q-ans-box">
+                <div class="q-ans">
+                  <span class="label">正确答案:</span> 
+                  <span class="val">{{ q.answer }}</span>
+                </div>
+                 <div class="q-analysis" v-if="q.analysis">
+                  <span class="label">解析:</span> 
+                  <span class="val">{{ q.analysis }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <el-empty v-if="previewData.questions.length === 0" description="暂无题目，请先进行组卷" />
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -255,6 +343,7 @@ onMounted(() => {
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  width: 100%;
 }
 
 .panel__head {
@@ -276,5 +365,111 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 20px;
+}
+
+.preview-content {
+  padding: 0 20px 20px;
+}
+
+.p-head {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.p-head h2 {
+  margin: 0 0 12px 0;
+  color: #1a1e23;
+}
+
+.p-meta {
+  display: flex;
+  gap: 16px;
+  color: #666;
+  font-size: 14px;
+  align-items: center;
+}
+
+.p-desc {
+  margin: 12px 0 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.p-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.p-item {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.p-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.idx {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1a1e23;
+}
+
+.p-q-diff {
+  font-size: 12px;
+  color: #999;
+  margin-left: auto;
+}
+
+.q-content {
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.q-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.q-opt {
+  font-size: 14px;
+  color: #555;
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.q-ans-box {
+  background: #fdf6ec;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.q-ans {
+  margin-bottom: 4px;
+  color: #e6a23c;
+  font-weight: 500;
+}
+
+.q-analysis {
+  color: #888;
+  margin-top: 8px;
+  border-top: 1px dashed #e6a23c;
+  padding-top: 8px;
+}
+
+.label {
+  margin-right: 8px;
 }
 </style>

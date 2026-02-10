@@ -50,9 +50,20 @@ public class TeacherExamController {
         return ApiResponse.ok(null);
     }
 
+    @PostMapping("/{id}/publish")
+    public ApiResponse<Void> publish(@PathVariable Long id) {
+        examService.publishExam(id);
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/{id}/question-ids")
     public ApiResponse<List<Long>> getQuestionIds(@PathVariable Long id) {
         return ApiResponse.ok(examService.getExamQuestionIds(id));
+    }
+
+    @GetMapping("/{id}/preview")
+    public ApiResponse<ExamService.ExamPreviewVo> getPreview(@PathVariable Long id) {
+        return ApiResponse.ok(examService.getExamPreview(id));
     }
 
     @PostMapping("/{id}/manual-compose")

@@ -146,7 +146,7 @@ onMounted(() => {
           <el-tag>{{ row.type === 1 ? '单选' : '多选' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="difficulty" label="难度" width="100">
+      <el-table-column prop="difficulty" label="难度" width="180">
         <template #default="{ row }">
           <el-rate v-model="row.difficulty" disabled />
         </template>
@@ -164,6 +164,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="form.id ? '编辑试题' : '添加试题'"
       width="600px"
+      append-to-body
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="类型" prop="type">
@@ -211,6 +212,7 @@ onMounted(() => {
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  width: 100%;
 }
 
 .panel__head {

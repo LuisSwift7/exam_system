@@ -1,6 +1,7 @@
 package com.examsystem.controller.student;
 
 import com.examsystem.common.ApiResponse;
+import com.examsystem.controller.dto.ExamResultResponse;
 import com.examsystem.entity.Exam;
 import com.examsystem.entity.ExamRecord;
 import com.examsystem.entity.Question;
@@ -39,6 +40,11 @@ public class ExamTakingController {
             q.setAnalysis(null);
         });
         return ApiResponse.ok(qs);
+    }
+
+    @GetMapping("/{recordId}/result")
+    public ApiResponse<ExamResultResponse> getResult(@PathVariable Long recordId) {
+        return ApiResponse.ok(takingService.getExamResult(recordId));
     }
 
     @PostMapping("/submit-answer")

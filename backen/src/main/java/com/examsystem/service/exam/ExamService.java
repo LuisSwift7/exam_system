@@ -12,6 +12,7 @@ import com.examsystem.mapper.ExamQuestionRelationMapper;
 import com.examsystem.mapper.QuestionMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -19,6 +20,7 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -59,6 +61,20 @@ public class ExamService {
         examMapper.deleteById(id);
         // Also delete relations
         relationMapper.delete(new LambdaQueryWrapper<ExamQuestionRelation>().eq(ExamQuestionRelation::getExamId, id));
+    }
+
+    public void publishExam(Long id) {
+        Exam exam = examMapper.selectById(id);
+        if (exam == null) throw new BizException(400, "试卷不存在");
+        
+        // Check if exam has questions
+        Long count = relationMapper.selectCount(new LambdaQueryWrapper<ExamQuestionRelation>().eq(ExamQuestionRelation::getExamId, id));
+        if (count == 0) {
+            throw new BizException(400, "试卷未添加题目，无法发布");
+        }
+        
+        exam.setStatus(1); // 1: Published
+        examMapper.updateById(exam);
     }
 
     @Transactional
@@ -112,11 +128,59 @@ public class ExamService {
         return relationMapper.selectQuestionIdsByExamId(examId);
     }
 
+    public ExamPreviewVo getExamPreview(Long id) {
+        Exam exam = examMapper.selectById(id);
+        if (exam == null) throw new BizException(400, "试卷不存在");
+
+        List<ExamQuestionRelation> relations = relationMapper.selectList(
+                new LambdaQueryWrapper<ExamQuestionRelation>()
+                        .eq(ExamQuestionRelation::getExamId, id)
+                        .orderByAsc(ExamQuestionRelation::getSortOrder)
+        );
+
+        if (relations.isEmpty()) {
+            return new ExamPreviewVo(exam, Collections.emptyList());
+        }
+
+        List<Long> qIds = relations.stream().map(ExamQuestionRelation::getQuestionId).collect(Collectors.toList());
+        List<Question> questions = questionMapper.selectBatchIds(qIds);
+        Map<Long, Question> qMap = questions.stream().collect(Collectors.toMap(Question::getId, q -> q));
+
+        List<QuestionPreviewVo> questionVos = new ArrayList<>();
+        for (ExamQuestionRelation r : relations) {
+            Question q = qMap.get(r.getQuestionId());
+            if (q != null) {
+                QuestionPreviewVo vo = new QuestionPreviewVo();
+                BeanUtils.copyProperties(q, vo);
+                vo.setScore(r.getScore());
+                questionVos.add(vo);
+            }
+        }
+
+        return new ExamPreviewVo(exam, questionVos);
+    }
+
     @Data
     public static class AutoComposeStrategy {
         private Integer type; // 1: Single, 2: Multiple
         private Integer count;
         private Integer difficulty; // 1-5
+        private Integer score;
+    }
+
+    @Data
+    public static class ExamPreviewVo {
+        private Exam exam;
+        private List<QuestionPreviewVo> questions;
+
+        public ExamPreviewVo(Exam exam, List<QuestionPreviewVo> questions) {
+            this.exam = exam;
+            this.questions = questions;
+        }
+    }
+
+    @Data
+    public static class QuestionPreviewVo extends Question {
         private Integer score;
     }
 }

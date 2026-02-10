@@ -87,7 +87,7 @@ async function submitLogin() {
     const data = res.data.data as { accessToken: string }
     auth.setToken(data.accessToken)
     await auth.fetchMe()
-    await router.replace('/')
+    await router.replace('/dashboard')
   } catch (e: any) {
     ElMessage.error(e?.message || '登录失败')
     loginForm.captchaCode = ''
@@ -125,7 +125,7 @@ onMounted(async () => {
   if (auth.token) {
     try {
       await auth.fetchMe()
-      await router.replace('/')
+      await router.replace('/dashboard')
       return
     } catch {
       auth.logout()

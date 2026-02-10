@@ -18,13 +18,122 @@ const recordId = ref<number | null>(null)
 const timeLeft = ref(0)
 const timer = ref<any>(null)
 
+// Anti-cheat
+const switchCount = ref(0)
+const MAX_SWITCH_COUNT = 3
+let lastViolationTime = 0
+
+// Camera
+const videoRef = ref<HTMLVideoElement | null>(null)
+const mediaStream = ref<MediaStream | null>(null)
+
+// Feedback
+const feedbackDialogVisible = ref(false)
+const feedbackContent = ref('')
+
+function openFeedbackDialog() {
+  feedbackContent.value = ''
+  feedbackDialogVisible.value = true
+}
+
+async function submitFeedback() {
+  if (!feedbackContent.value.trim()) {
+    ElMessage.warning('请输入反馈内容')
+    return
+  }
+  
+  try {
+    await http.post('/api/student/feedback/create', {
+      questionId: currentQ.value.id,
+      examId: parseInt(examId as string),
+      content: feedbackContent.value
+    })
+    ElMessage.success('反馈提交成功')
+    feedbackDialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e?.message || '提交失败')
+  }
+}
+
 const currentQ = computed(() => questions.value[currentIdx.value])
+
+async function initCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        width: 320,
+        height: 240,
+        facingMode: 'user'
+      }, 
+      audio: false 
+    })
+    mediaStream.value = stream
+    if (videoRef.value) {
+      videoRef.value.srcObject = stream
+    }
+  } catch (err) {
+    console.error('Camera Error:', err)
+    ElMessage.warning('无法访问摄像头，请检查设备权限')
+  }
+}
+
+function handleViolation() {
+  if (loading.value) return // Avoid re-trigger during submit
+  
+  const now = Date.now()
+  if (now - lastViolationTime < 1000) return // Debounce 1s
+  lastViolationTime = now
+  
+  switchCount.value++
+  
+  if (switchCount.value > MAX_SWITCH_COUNT) {
+    // Exceeded limit
+    ElMessage.error('您已超过切屏限制次数，系统将自动交卷！')
+    submitExam(true)
+  } else {
+    // Warning
+    ElMessageBox.alert(
+      `检测到您进行了切屏操作！当前已切屏 ${switchCount.value} 次，累计 ${MAX_SWITCH_COUNT + 1} 次将被强制交卷。`,
+      '切屏警告',
+      {
+        confirmButtonText: '我知道了',
+        type: 'warning',
+        closeOnClickModal: false,
+        closeOnPressEscape: false,
+        showClose: false
+      }
+    )
+  }
+}
+
+function onVisibilityChange() {
+  if (document.hidden) {
+    handleViolation()
+  }
+}
+
+function onBlur() {
+  // Only trigger if document is also hidden or just rely on blur?
+  // Blur is strict (Alt+Tab triggers it). 
+  // To avoid double counting with visibilityChange (which might happen depending on browser), 
+  // we can debounce or just accept that they capture slightly different things.
+  // Usually visibilityChange is enough for "Tab Switch", Blur is for "App Switch".
+  // Let's use handleViolation directly.
+  handleViolation()
+}
 
 async function init() {
   try {
     // 1. Start/Get Record
     const startRes = await http.post(`/api/student/exam-taking/${examId}/start`)
     recordId.value = startRes.data.data.id
+    
+    // Check if completed
+    if (startRes.data.data.status === 1) {
+      ElMessage.info('您已完成该考试')
+      router.replace(`/student/exam-result/${recordId.value}`)
+      return
+    }
     
     // 2. Get Questions
     const qRes = await http.get(`/api/student/exam-taking/${examId}/questions`)
@@ -125,7 +234,7 @@ async function submitExam(force = false) {
   try {
     await http.post('/api/student/exam-taking/submit-exam', { recordId: recordId.value })
     ElMessage.success('交卷成功')
-    router.replace('/')
+    router.replace(`/student/exam-result/${recordId.value}`)
   } catch (e: any) {
     ElMessage.error(e?.message || '交卷失败')
     loading.value = false
@@ -134,10 +243,18 @@ async function submitExam(force = false) {
 
 onMounted(() => {
   init()
+  initCamera()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('blur', onBlur)
 })
 
 onUnmounted(() => {
   if (timer.value) clearInterval(timer.value)
+  if (mediaStream.value) {
+    mediaStream.value.getTracks().forEach(track => track.stop())
+  }
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('blur', onBlur)
 })
 </script>
 
@@ -148,6 +265,16 @@ onUnmounted(() => {
     <div class="layout" v-if="!loading">
       <!-- Left: Navigation -->
       <aside class="side">
+        <!-- Camera View -->
+        <div class="side__card camera-card">
+          <div class="camera-box">
+            <video ref="videoRef" autoplay playsinline muted></video>
+            <div class="rec-badge">
+              <span class="dot-blink"></span> REC
+            </div>
+          </div>
+        </div>
+
         <div class="side__card">
           <div class="side__head">
             <h3>答题卡</h3>
@@ -155,6 +282,11 @@ onUnmounted(() => {
               <Icon icon="iconoir:timer" />
               <span>{{ formatTime }}</span>
             </div>
+          </div>
+
+          <div class="monitor-info">
+            <Icon icon="iconoir:eye-alt" />
+            <span>切屏次数: {{ switchCount }} / {{ MAX_SWITCH_COUNT + 1 }}</span>
           </div>
           
           <div class="grid">
@@ -182,11 +314,26 @@ onUnmounted(() => {
             <el-button type="primary" class="submit-btn" @click="submitExam(false)">交卷</el-button>
           </div>
         </div>
+
+        <!-- Instructions -->
+        <div class="side__card">
+          <div class="side__head">
+            <h3>考试注意事项</h3>
+          </div>
+          <ul class="exam-tips">
+            <li><Icon icon="iconoir:wifi" /> 保持网络畅通，避免中断</li>
+            <li><Icon icon="iconoir:cancel" /> 禁止切屏，超过限制自动交卷</li>
+            <li><Icon icon="iconoir:camera" /> 全程开启摄像头监控</li>
+            <li><Icon icon="iconoir:timer" /> 倒计时结束将自动交卷</li>
+            <li><Icon icon="iconoir:warning-circle" /> 诚信考试，严禁作弊</li>
+          </ul>
+        </div>
       </aside>
 
       <!-- Center: Question -->
       <main class="main">
-        <div class="question-card">
+        <el-empty v-if="!currentQ" description="暂无题目数据" />
+        <div class="question-card" v-else>
           <div class="q-head">
             <el-tag size="small" effect="dark">{{ currentQ.type === 2 ? '多选题' : '单选题' }}</el-tag>
             <span class="q-idx">第 {{ currentIdx + 1 }} / {{ questions.length }} 题</span>
@@ -198,6 +345,15 @@ onUnmounted(() => {
             >
               <Icon icon="iconoir:bookmark" />
               {{ marks[currentQ.id] ? '已标记' : '标记' }}
+            </el-button>
+            <el-button 
+              size="small" 
+              type="default" 
+              plain 
+              @click="openFeedbackDialog"
+            >
+              <Icon icon="iconoir:chat-bubble" />
+              题目反馈
             </el-button>
           </div>
 
@@ -229,6 +385,26 @@ onUnmounted(() => {
         </div>
       </main>
     </div>
+    <!-- Feedback Dialog -->
+    <el-dialog
+      v-model="feedbackDialogVisible"
+      title="题目反馈"
+      width="500px"
+      append-to-body
+    >
+      <el-input
+        v-model="feedbackContent"
+        type="textarea"
+        :rows="4"
+        placeholder="请输入您对该题目的疑问或反馈..."
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="feedbackDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitFeedback">提交</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -252,13 +428,13 @@ onUnmounted(() => {
   padding: 24px;
   display: flex;
   gap: 24px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .side {
   width: 280px;
-  position: sticky;
-  top: 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .side__card {
@@ -266,6 +442,62 @@ onUnmounted(() => {
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  margin-bottom: 24px;
+}
+
+.side__card:last-child {
+  margin-bottom: 0;
+}
+
+.camera-card {
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.camera-box {
+  width: 100%;
+  aspect-ratio: 4/3;
+  position: relative;
+}
+
+.camera-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror effect */
+}
+
+.rec-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 0, 0, 0.6);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot-blink {
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
 }
 
 .side__head {
@@ -278,6 +510,8 @@ onUnmounted(() => {
 .side__head h3 {
   font-size: 16px;
   margin: 0;
+  color: #1a1e23;
+  font-weight: 700;
 }
 
 .timer {
@@ -290,6 +524,19 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.monitor-info {
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #e6a23c;
+  background: #fdf6ec;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
 }
 
 .grid {
@@ -373,8 +620,36 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.exam-tips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exam-tips li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.exam-tips li:last-child {
+  margin-bottom: 0;
+}
+
+.exam-tips li svg {
+  color: #10d4a6;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
 .main {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .question-card {
@@ -385,6 +660,7 @@ onUnmounted(() => {
   min-height: 600px;
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .q-head {

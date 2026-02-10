@@ -116,6 +116,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="form.id ? '编辑学生' : '添加学生'"
       width="500px"
+      append-to-body
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="学号" prop="username">
@@ -153,6 +154,7 @@ onMounted(() => {
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  width: 100%;
 }
 
 .panel__head {

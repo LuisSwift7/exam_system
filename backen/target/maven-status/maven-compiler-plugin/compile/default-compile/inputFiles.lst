@@ -1,8 +1,10 @@
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherExamController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\user\SysUserService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\LoginResponse.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\WrongBook.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\AuthController.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamRecordMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentWrongBookController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\auth\JwtService.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\GlobalExceptionHandler.java
 D:\examSystem\backen\src\main\java\com\examsystem\security\JwtAuthFilter.java
@@ -16,6 +18,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\BackenApplication.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamAnswer.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\ExamTakingService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\LoginRequest.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\StudentExamResponse.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\JwtProperties.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\MeController.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\ExamTakingController.java
@@ -25,13 +28,16 @@ D:\examSystem\backen\src\main\java\com\examsystem\config\CorsConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\security\UserPrincipal.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\SecurityConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamQuestionRelationMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\service\exam\WrongBookService.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\Exam.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\AppPropertiesConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\SysUser.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\question\QuestionService.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\ExamResultResponse.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\CaptchaProperties.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherQuestionController.java
+D:\examSystem\backen\src\main\java\com\examsystem\mapper\WrongBookMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\Question.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherStudentController.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamAnswerMapper.java

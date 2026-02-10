@@ -2,6 +2,7 @@ package com.examsystem.service.exam;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.examsystem.common.BizException;
+import com.examsystem.controller.dto.ExamResultResponse;
 import com.examsystem.entity.*;
 import com.examsystem.mapper.*;
 import com.examsystem.security.UserPrincipal;
@@ -25,9 +26,56 @@ public class ExamTakingService {
     private final ExamQuestionRelationMapper relationMapper;
     private final QuestionMapper questionMapper;
     private final ExamAnswerMapper examAnswerMapper;
+    private final WrongBookMapper wrongBookMapper;
 
     public Exam getExam(Long examId) {
         return examMapper.selectById(examId);
+    }
+
+    public ExamResultResponse getExamResult(Long recordId) {
+        ExamRecord record = examRecordMapper.selectById(recordId);
+        if (record == null) throw new BizException(4004, "记录不存在");
+        if (record.getStatus() == 0) throw new BizException(4003, "考试未完成，无法查看结果");
+        
+        Exam exam = examMapper.selectById(record.getExamId());
+        
+        List<ExamAnswer> answers = examAnswerMapper.selectList(new LambdaQueryWrapper<ExamAnswer>()
+                .eq(ExamAnswer::getRecordId, recordId));
+        Map<Long, ExamAnswer> ansMap = answers.stream().collect(Collectors.toMap(ExamAnswer::getQuestionId, Function.identity()));
+        
+        // Get scores
+        List<ExamQuestionRelation> relations = relationMapper.selectList(new LambdaQueryWrapper<ExamQuestionRelation>()
+                .eq(ExamQuestionRelation::getExamId, record.getExamId()));
+        Map<Long, Integer> scoreMap = relations.stream()
+                .collect(Collectors.toMap(ExamQuestionRelation::getQuestionId, ExamQuestionRelation::getScore));
+        int totalScore = relations.stream().mapToInt(ExamQuestionRelation::getScore).sum();
+
+        List<Question> questions = getExamQuestions(record.getExamId());
+        
+        List<ExamResultResponse.QuestionResult> qResults = questions.stream().map(q -> {
+            ExamResultResponse.QuestionResult qr = new ExamResultResponse.QuestionResult();
+            qr.setId(q.getId());
+            qr.setContent(q.getContent());
+            qr.setType(q.getType());
+            qr.setScore(scoreMap.getOrDefault(q.getId(), 0));
+            qr.setOptions(q.getOptions());
+            qr.setAnswer(q.getAnswer());
+            qr.setAnalysis(q.getAnalysis());
+            
+            ExamAnswer a = ansMap.get(q.getId());
+            if (a != null) {
+                qr.setStudentAnswer(a.getStudentAnswer());
+                qr.setIsCorrect(a.getIsCorrect());
+            }
+            return qr;
+        }).collect(Collectors.toList());
+        
+        ExamResultResponse res = new ExamResultResponse();
+        res.setRecord(record);
+        res.setExam(exam);
+        res.setTotalScore(totalScore);
+        res.setQuestions(qResults);
+        return res;
     }
 
     public ExamRecord getRecord(Long examId, Long studentId) {
@@ -127,6 +175,8 @@ public class ExamTakingService {
                     totalScore += scoreMap.getOrDefault(q.getId(), 0);
                 } else {
                     ans.setIsCorrect(0);
+                    // Add to Wrong Book
+                    saveWrongQuestion(record.getStudentId(), q.getId(), record.getExamId());
                 }
                 examAnswerMapper.updateById(ans);
             }
@@ -134,5 +184,29 @@ public class ExamTakingService {
         
         record.setScore(totalScore);
         examRecordMapper.updateById(record);
+    }
+
+    private void saveWrongQuestion(Long studentId, Long questionId, Long examId) {
+        WrongBook wb = wrongBookMapper.selectOne(new LambdaQueryWrapper<WrongBook>()
+                .eq(WrongBook::getStudentId, studentId)
+                .eq(WrongBook::getQuestionId, questionId));
+        
+        if (wb == null) {
+            wb = new WrongBook();
+            wb.setStudentId(studentId);
+            wb.setQuestionId(questionId);
+            wb.setExamId(examId);
+            wb.setWrongCount(1);
+            wb.setPracticeCount(0);
+            wb.setPracticeCorrectCount(0);
+            wb.setCreateTime(LocalDateTime.now());
+            wb.setUpdateTime(LocalDateTime.now());
+            wrongBookMapper.insert(wb);
+        } else {
+            wb.setWrongCount(wb.getWrongCount() + 1);
+            wb.setExamId(examId); // Update to latest exam
+            wb.setUpdateTime(LocalDateTime.now());
+            wrongBookMapper.updateById(wb);
+        }
     }
 }
