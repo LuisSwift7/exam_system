@@ -23,6 +23,7 @@ com\examsystem\mapper\ExamRecordMapper.class
 com\examsystem\controller\MeController$MeView.class
 com\examsystem\mapper\QuestionReviewMapper.class
 com\examsystem\mapper\ExamQuestionRelationMapper.class
+com\examsystem\service\tool\PdfImportService.class
 com\examsystem\entity\WrongBook.class
 com\examsystem\security\JwtAuthFilter.class
 com\examsystem\config\JwtProperties.class
@@ -48,6 +49,7 @@ com\examsystem\service\exam\WrongBookService.class
 com\examsystem\controller\dto\LoginResponse.class
 com\examsystem\service\auth\AuthService.class
 com\examsystem\service\exam\ExamService.class
+com\examsystem\controller\teacher\QuestionImportController.class
 com\examsystem\controller\student\StudentFeedbackController.class
 com\examsystem\controller\teacher\TeacherQuestionController.class
 com\examsystem\common\BizException.class

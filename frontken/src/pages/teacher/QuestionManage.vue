@@ -23,6 +23,40 @@ const rules = {
   answer: [{ required: true, message: '请选择正确答案', trigger: 'change' }]
 }
 
+const importDialogVisible = ref(false)
+const parsedQuestions = ref<any[]>([])
+const importLoading = ref(false)
+
+async function handleUpload(options: any) {
+  const formData = new FormData()
+  formData.append('file', options.file)
+  importLoading.value = true
+  try {
+    const res = await http.post('/api/teacher/question/import/pdf/parse', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    parsedQuestions.value = res.data.data
+    ElMessage.success(`成功解析 ${parsedQuestions.value.length} 道题目`)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '解析失败')
+  } finally {
+    importLoading.value = false
+  }
+}
+
+async function confirmImport() {
+  if (!parsedQuestions.value.length) return
+  try {
+    await http.post('/api/teacher/question/import/batch', parsedQuestions.value)
+    ElMessage.success('导入成功')
+    importDialogVisible.value = false
+    parsedQuestions.value = []
+    fetchList()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存失败')
+  }
+}
+
 async function fetchList() {
   loading.value = true
   try {
@@ -133,10 +167,16 @@ onMounted(() => {
   <div class="panel">
     <div class="panel__head">
       <h3>试题管理</h3>
-      <el-button type="primary" @click="handleAdd">
-        <Icon icon="iconoir:plus" />
-        添加试题
-      </el-button>
+      <div class="actions">
+        <el-button @click="importDialogVisible = true">
+          <Icon icon="iconoir:page" />
+          PDF智能导入
+        </el-button>
+        <el-button type="primary" @click="handleAdd">
+          <Icon icon="iconoir:plus" />
+          添加试题
+        </el-button>
+      </div>
     </div>
 
     <el-table :data="list" v-loading="loading" style="width: 100%">
@@ -199,7 +239,58 @@ onMounted(() => {
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submit">确认</el-button>
+          <el-button type="primary" @click="submit">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- PDF Import Dialog -->
+    <el-dialog
+      v-model="importDialogVisible"
+      title="智能导入试题"
+      width="900px"
+      append-to-body
+    >
+      <div class="import-container" v-loading="importLoading">
+        <el-upload
+          class="upload-demo"
+          drag
+          action=""
+          :http-request="handleUpload"
+          :show-file-list="false"
+          accept=".pdf"
+        >
+          <Icon icon="iconoir:cloud-upload" style="font-size: 48px; color: #999" />
+          <div class="el-upload__text">拖拽PDF文件到此处或 <em>点击上传</em></div>
+          <div class="el-upload__tip">支持自动识别标准格式的题目：1. 题干 A. 选项 答案：A 解析：...</div>
+        </el-upload>
+
+        <div v-if="parsedQuestions.length > 0" class="parsed-list">
+          <div class="list-head">
+            <span>已识别 {{ parsedQuestions.length }} 道题目</span>
+            <el-button type="primary" size="small" @click="parsedQuestions = []">清空</el-button>
+          </div>
+          <el-table :data="parsedQuestions" height="400" border>
+            <el-table-column type="index" width="50" />
+            <el-table-column prop="content" label="题干" show-overflow-tooltip />
+            <el-table-column label="选项" width="200">
+              <template #default="{ row }">
+                <div v-for="(opt, i) in row.options" :key="i" class="text-xs text-gray-500 truncate">
+                  {{ opt }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="answer" label="答案" width="60" />
+            <el-table-column prop="analysis" label="解析" show-overflow-tooltip />
+          </el-table>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="importDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmImport" :disabled="!parsedQuestions.length">
+            确认导入
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -239,5 +330,23 @@ onMounted(() => {
 .opt-key {
   font-weight: 700;
   width: 20px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.parsed-list {
+  margin-top: 24px;
+  border-top: 1px dashed #eee;
+  padding-top: 24px;
+}
+
+.list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 </style>
