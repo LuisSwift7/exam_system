@@ -126,10 +126,11 @@ async function init() {
   try {
     // 1. Start/Get Record
     const startRes = await http.post(`/api/student/exam-taking/${examId}/start`)
-    recordId.value = startRes.data.data.id
+    const record = startRes.data.data
+    recordId.value = record.id
     
     // Check if completed
-    if (startRes.data.data.status === 1) {
+    if (record.status === 1) {
       ElMessage.info('您已完成该考试')
       router.replace(`/student/exam-result/${recordId.value}`)
       return
@@ -151,9 +152,13 @@ async function init() {
       return { ...q, options: opts }
     })
 
-    // 3. Get Detail for Duration (Simple mock for now, ideally backend returns timeLeft)
-    const detailRes = await http.get(`/api/student/exam-taking/${examId}/detail`)
-    timeLeft.value = detailRes.data.data.duration * 60
+    // 3. Set Time
+    if (record.remainingSeconds !== undefined) {
+      timeLeft.value = record.remainingSeconds
+    } else {
+      const detailRes = await http.get(`/api/student/exam-taking/${examId}/detail`)
+      timeLeft.value = detailRes.data.data.duration * 60
+    }
     
     startTimer()
   } catch (e: any) {

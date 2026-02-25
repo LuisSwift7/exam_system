@@ -17,7 +17,7 @@ import java.util.List;
 public class QuestionService {
     private final QuestionMapper questionMapper;
 
-    public IPage<Question> getQuestions(int page, int size, String keyword, Integer type) {
+    public IPage<Question> getQuestions(int page, int size, String keyword, Integer type, String category) {
         Page<Question> p = new Page<>(page, size);
         LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<Question>()
                 .orderByDesc(Question::getCreatedTime);
@@ -27,6 +27,9 @@ public class QuestionService {
         }
         if (type != null) {
             wrapper.eq(Question::getType, type);
+        }
+        if (StringUtils.hasText(category)) {
+            wrapper.eq(Question::getCategory, category);
         }
         return questionMapper.selectPage(p, wrapper);
     }
@@ -43,5 +46,10 @@ public class QuestionService {
 
     public void deleteQuestion(Long id) {
         questionMapper.deleteById(id);
+    }
+
+    public void deleteQuestions(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        questionMapper.deleteBatchIds(ids);
     }
 }

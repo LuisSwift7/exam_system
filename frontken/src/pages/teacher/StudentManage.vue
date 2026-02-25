@@ -96,7 +96,11 @@ onMounted(() => {
     <el-table :data="list" v-loading="loading" style="width: 100%">
       <el-table-column prop="username" label="学号" width="180" />
       <el-table-column prop="realName" label="姓名" width="180" />
-      <el-table-column prop="createdTime" label="注册时间" />
+      <el-table-column prop="createdTime" label="注册时间">
+        <template #default="{ row }">
+          {{ row.createdTime ? row.createdTime.replace('T', ' ') : '-' }}
+        </template>
+      </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">

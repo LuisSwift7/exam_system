@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,9 +22,10 @@ public class TeacherQuestionController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer type
+            @RequestParam(required = false) Integer type,
+            @RequestParam(required = false) String category
     ) {
-        IPage<Question> result = questionService.getQuestions(page, size, keyword, type);
+        IPage<Question> result = questionService.getQuestions(page, size, keyword, type, category);
         Map<String, Object> map = new HashMap<>();
         map.put("total", result.getTotal());
         map.put("list", result.getRecords());
@@ -46,6 +48,12 @@ public class TeacherQuestionController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         questionService.deleteQuestion(id);
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/batch")
+    public ApiResponse<Void> deleteBatch(@RequestBody List<Long> ids) {
+        questionService.deleteQuestions(ids);
         return ApiResponse.ok(null);
     }
 }

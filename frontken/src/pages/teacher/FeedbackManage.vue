@@ -124,7 +124,11 @@ onMounted(() => {
         <el-table-column prop="studentId" label="学生ID" width="100" />
         <el-table-column prop="questionId" label="题目ID" width="100" />
         <el-table-column prop="content" label="反馈内容" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="createTime" label="提交时间" width="180" />
+        <el-table-column prop="createTime" label="提交时间" width="180">
+          <template #default="{ row }">
+            {{ row.createTime ? row.createTime.replace('T', ' ') : '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'warning'">

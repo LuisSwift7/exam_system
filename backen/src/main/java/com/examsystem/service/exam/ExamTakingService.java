@@ -92,7 +92,12 @@ public class ExamTakingService {
         
         // Check if already started
         ExamRecord record = getRecord(examId, studentId);
-        if (record != null) return record;
+        if (record != null) {
+            long duration = exam.getDuration() * 60L;
+            long elapsed = java.time.Duration.between(record.getStartTime(), LocalDateTime.now()).getSeconds();
+            record.setRemainingSeconds(Math.max(0, duration - elapsed));
+            return record;
+        }
 
         // Check time
         LocalDateTime now = LocalDateTime.now();
@@ -110,6 +115,7 @@ public class ExamTakingService {
         record.setStartTime(now);
         examRecordMapper.insert(record);
 
+        record.setRemainingSeconds((long) exam.getDuration() * 60L);
         return record;
     }
 

@@ -25,6 +25,7 @@ public class Question {
     private String answer;
     private String analysis;
     private Integer difficulty;
+    private String category; // 言语理解、资料分析、判断推理、数量关系、常识判断
     private LocalDateTime createdTime;
     private Long createBy;
     private LocalDateTime updatedTime;

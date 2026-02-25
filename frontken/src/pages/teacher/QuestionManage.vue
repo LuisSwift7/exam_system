@@ -12,20 +12,27 @@ const form = ref<any>({
   id: undefined,
   content: '',
   type: 1,
+  category: '常识判断',
   options: [{ key: 'A', value: '' }, { key: 'B', value: '' }, { key: 'C', value: '' }, { key: 'D', value: '' }],
   answer: [],
   analysis: '',
   difficulty: 3
 })
 
+const categories = ['常识判断', '言语理解', '数量关系', '判断推理', '资料分析']
+const filterCategory = ref('')
+
 const rules = {
   content: [{ required: true, message: '请输入题目内容', trigger: 'blur' }],
-  answer: [{ required: true, message: '请选择正确答案', trigger: 'change' }]
+  answer: [{ required: true, message: '请选择正确答案', trigger: 'change' }],
+  category: [{ required: true, message: '请选择题目分类', trigger: 'change' }]
 }
 
 const importDialogVisible = ref(false)
 const parsedQuestions = ref<any[]>([])
 const importLoading = ref(false)
+const importCategory = ref('常识判断')
+const selectedIds = ref<number[]>([])
 
 async function handleUpload(options: any) {
   const formData = new FormData()
@@ -35,7 +42,11 @@ async function handleUpload(options: any) {
     const res = await http.post('/api/teacher/question/import/pdf/parse', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    parsedQuestions.value = res.data.data
+    // Initialize category for each parsed question
+    parsedQuestions.value = res.data.data.map((q: any) => ({
+      ...q,
+      category: importCategory.value
+    }))
     ElMessage.success(`成功解析 ${parsedQuestions.value.length} 道题目`)
   } catch (e: any) {
     ElMessage.error(e?.message || '解析失败')
@@ -47,7 +58,13 @@ async function handleUpload(options: any) {
 async function confirmImport() {
   if (!parsedQuestions.value.length) return
   try {
-    await http.post('/api/teacher/question/import/batch', parsedQuestions.value)
+    // Add category
+    const list = parsedQuestions.value.map(q => ({
+      ...q,
+      category: q.category || importCategory.value
+    }))
+    
+    await http.post('/api/teacher/question/import/batch', list)
     ElMessage.success('导入成功')
     importDialogVisible.value = false
     parsedQuestions.value = []
@@ -60,7 +77,11 @@ async function confirmImport() {
 async function fetchList() {
   loading.value = true
   try {
-    const res = await http.get('/api/teacher/questions')
+    const res = await http.get('/api/teacher/questions', {
+      params: {
+        category: filterCategory.value || undefined
+      }
+    })
     list.value = res.data.data.list
   } catch (e: any) {
     ElMessage.error(e?.message || '获取列表失败')
@@ -74,6 +95,7 @@ function handleAdd() {
     id: undefined,
     content: '',
     type: 1,
+    category: '常识判断',
     options: [{ key: 'A', value: '' }, { key: 'B', value: '' }, { key: 'C', value: '' }, { key: 'D', value: '' }],
     answer: [],
     analysis: '',
@@ -127,6 +149,28 @@ async function handleDelete(id: number) {
   }
 }
 
+async function handleBatchDelete() {
+  if (!selectedIds.value.length) {
+    ElMessage.warning('请先选择要删除的试题')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确认批量删除选中的 ${selectedIds.value.length} 道试题？`, '警告', { type: 'warning' })
+    await http.delete('/api/teacher/questions/batch', { data: selectedIds.value })
+    ElMessage.success('批量删除成功')
+    selectedIds.value = []
+    fetchList()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.message || '批量删除失败')
+    }
+  }
+}
+
+function handleSelectionChange(selection: any[]) {
+  selectedIds.value = selection.map(item => item.id)
+}
+
 async function submit() {
   if (!formRef.value) return
   await formRef.value.validate(async (valid: boolean) => {
@@ -168,6 +212,17 @@ onMounted(() => {
     <div class="panel__head">
       <h3>试题管理</h3>
       <div class="actions">
+        <el-button 
+          type="danger" 
+          plain 
+          :disabled="!selectedIds.length"
+          @click="handleBatchDelete"
+        >
+          批量删除
+        </el-button>
+        <el-select v-model="filterCategory" placeholder="按题库筛选" clearable style="width: 150px" @change="fetchList">
+          <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
+        </el-select>
         <el-button @click="importDialogVisible = true">
           <Icon icon="iconoir:page" />
           PDF智能导入
@@ -179,8 +234,14 @@ onMounted(() => {
       </div>
     </div>
 
-    <el-table :data="list" v-loading="loading" style="width: 100%">
+    <el-table :data="list" v-loading="loading" style="width: 100%" @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="55" />
       <el-table-column prop="content" label="题目内容" show-overflow-tooltip />
+      <el-table-column prop="category" label="题库" width="120">
+        <template #default="{ row }">
+          <el-tag type="info">{{ row.category || '未分类' }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="type" label="类型" width="100">
         <template #default="{ row }">
           <el-tag>{{ row.type === 1 ? '单选' : '多选' }}</el-tag>
@@ -207,6 +268,11 @@ onMounted(() => {
       append-to-body
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="题库" prop="category">
+          <el-select v-model="form.category" placeholder="请选择">
+            <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="form.type" @change="form.answer = form.type === 1 ? '' : []">
             <el-radio :label="1">单选题</el-radio>
@@ -252,6 +318,14 @@ onMounted(() => {
       append-to-body
     >
       <div class="import-container" v-loading="importLoading">
+        <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+          <span>默认题库：</span>
+          <el-select v-model="importCategory" style="width: 200px">
+            <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
+          </el-select>
+          <span style="color: #999; font-size: 13px;">(解析结果将默认使用此分类，也可在下方列表中单独修改)</span>
+        </div>
+
         <el-upload
           class="upload-demo"
           drag
@@ -273,6 +347,13 @@ onMounted(() => {
           <el-table :data="parsedQuestions" height="400" border>
             <el-table-column type="index" width="50" />
             <el-table-column prop="content" label="题干" show-overflow-tooltip />
+            <el-table-column label="题库" width="140">
+              <template #default="{ row }">
+                <el-select v-model="row.category" placeholder="请选择" size="small">
+                  <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
+                </el-select>
+              </template>
+            </el-table-column>
             <el-table-column label="选项" width="200">
               <template #default="{ row }">
                 <div v-for="(opt, i) in row.options" :key="i" class="text-xs text-gray-500 truncate">

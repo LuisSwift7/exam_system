@@ -1,6 +1,7 @@
 package com.examsystem.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -20,4 +21,7 @@ public class ExamRecord {
     private LocalDateTime startTime;
     private LocalDateTime submitTime;
     private LocalDateTime createdTime;
+
+    @TableField(exist = false)
+    private Long remainingSeconds;
 }
