@@ -12,6 +12,8 @@ import com.examsystem.mapper.ExamQuestionRelationMapper;
 import com.examsystem.mapper.QuestionMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,48 +81,89 @@ public class ExamService {
 
     @Transactional
     public void manualCompose(Long examId, List<Long> questionIds, Integer score) {
-        // Clear existing
         relationMapper.delete(new LambdaQueryWrapper<ExamQuestionRelation>().eq(ExamQuestionRelation::getExamId, examId));
+        
+        if (questionIds == null || questionIds.isEmpty()) return;
+        
+        List<Question> questions = questionMapper.selectBatchIds(questionIds);
+        Map<Long, Question> qMap = questions.stream().collect(Collectors.toMap(Question::getId, Function.identity()));
         
         int order = 1;
         for (Long qId : questionIds) {
             ExamQuestionRelation r = new ExamQuestionRelation();
             r.setExamId(examId);
             r.setQuestionId(qId);
-            r.setScore(score != null ? score : 2); // Default 2 points
+            r.setScore(score != null ? score : 2);
             r.setSortOrder(order++);
+            
+            Question q = qMap.get(qId);
+            if (q != null) {
+                r.setCategory(q.getCategory());
+            }
+            
             relationMapper.insert(r);
         }
     }
 
     @Transactional
     public void autoCompose(Long examId, AutoComposeStrategy strategy) {
-        // Clear existing
         relationMapper.delete(new LambdaQueryWrapper<ExamQuestionRelation>().eq(ExamQuestionRelation::getExamId, examId));
 
-        // Simple Random Strategy (Simplified NSGA-II placeholder)
-        // In real world: Use strategy.difficulty, strategy.type to filter
-        
-        LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
-        if (strategy.getType() != null) wrapper.eq(Question::getType, strategy.getType());
-        // If difficulty provided, we could use a range or exact match, here we ignore for randomness or simple match
-        
-        List<Question> candidates = questionMapper.selectList(wrapper);
-        if (candidates.size() < strategy.getCount()) {
-            throw new BizException(400, "题库数量不足，无法满足组卷要求");
-        }
+        if (strategy.getCategoryCounts() != null && !strategy.getCategoryCounts().isEmpty()) {
+            int totalRequired = 0;
+            for (CategoryCount cc : strategy.getCategoryCounts()) {
+                totalRequired += cc.getCount();
+            }
+            
+            int order = 1;
+            for (CategoryCount cc : strategy.getCategoryCounts()) {
+                LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
+                wrapper.eq(Question::getCategory, cc.getCategory());
+                if (strategy.getType() != null) {
+                    wrapper.eq(Question::getType, strategy.getType());
+                }
+                
+                List<Question> candidates = questionMapper.selectList(wrapper);
+                if (candidates.size() < cc.getCount()) {
+                    throw new BizException(400, "分类【" + cc.getCategory() + "】题库数量不足，需要" + cc.getCount() + "道，仅有" + candidates.size() + "道");
+                }
+                
+                Collections.shuffle(candidates);
+                List<Question> selected = candidates.subList(0, cc.getCount());
+                
+                for (Question q : selected) {
+                    ExamQuestionRelation r = new ExamQuestionRelation();
+                    r.setExamId(examId);
+                    r.setQuestionId(q.getId());
+                    r.setScore(cc.getScore() != null ? cc.getScore() : 2);
+                    r.setSortOrder(order++);
+                    r.setCategory(q.getCategory());
+                    relationMapper.insert(r);
+                }
+            }
+        } else {
+            LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
+            if (strategy.getType() != null) wrapper.eq(Question::getType, strategy.getType());
+            if (strategy.getCategory() != null) wrapper.eq(Question::getCategory, strategy.getCategory());
+            
+            List<Question> candidates = questionMapper.selectList(wrapper);
+            if (candidates.size() < strategy.getCount()) {
+                throw new BizException(400, "题库数量不足，无法满足组卷要求");
+            }
 
-        Collections.shuffle(candidates);
-        List<Question> selected = candidates.subList(0, strategy.getCount());
+            Collections.shuffle(candidates);
+            List<Question> selected = candidates.subList(0, strategy.getCount());
 
-        int order = 1;
-        for (Question q : selected) {
-            ExamQuestionRelation r = new ExamQuestionRelation();
-            r.setExamId(examId);
-            r.setQuestionId(q.getId());
-            r.setScore(strategy.getScore() != null ? strategy.getScore() : 2);
-            r.setSortOrder(order++);
-            relationMapper.insert(r);
+            int order = 1;
+            for (Question q : selected) {
+                ExamQuestionRelation r = new ExamQuestionRelation();
+                r.setExamId(examId);
+                r.setQuestionId(q.getId());
+                r.setScore(strategy.getScore() != null ? strategy.getScore() : 2);
+                r.setSortOrder(order++);
+                r.setCategory(q.getCategory());
+                relationMapper.insert(r);
+            }
         }
     }
 
@@ -162,9 +205,18 @@ public class ExamService {
 
     @Data
     public static class AutoComposeStrategy {
-        private Integer type; // 1: Single, 2: Multiple
+        private Integer type;
         private Integer count;
-        private Integer difficulty; // 1-5
+        private Integer difficulty;
+        private Integer score;
+        private String category;
+        private List<CategoryCount> categoryCounts;
+    }
+
+    @Data
+    public static class CategoryCount {
+        private String category;
+        private Integer count;
         private Integer score;
     }
 

@@ -14,4 +14,5 @@ public class ExamQuestionRelation {
     private Long questionId;
     private Integer score;
     private Integer sortOrder;
+    private String category;
 }

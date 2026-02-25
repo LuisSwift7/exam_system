@@ -46,10 +46,16 @@ async function logout() {
 function getStatusTag(item: any) {
   if (item.studentStatus === 1) return { type: 'success', text: '已完成' }
   if (item.studentStatus === 0) return { type: 'warning', text: '答题中' }
+  if (item.studentStatus === 2) return { type: 'danger', text: '已结束' }
   
-  if (item.status === 1) return { type: 'primary', text: '进行中' }
-  if (item.status === 2) return { type: 'info', text: '未开始' }
-  return { type: 'danger', text: '已结束' }
+  // Check exam time for not started exams
+  const now = new Date()
+  const startTime = new Date(item.startTime)
+  const endTime = new Date(item.endTime)
+  
+  if (now < startTime) return { type: 'info', text: '未开始' }
+  if (now > endTime) return { type: 'danger', text: '已结束' }
+  return { type: 'primary', text: '进行中' }
 }
 
 const handleExamClick = (item: any) => {
@@ -65,9 +71,30 @@ const handleExamClick = (item: any) => {
 const getBtnText = (item: any) => {
   if (item.studentStatus === 1) return '查看结果'
   if (item.studentStatus === 0) return '继续考试'
-  if (item.status === 1) return '进入考试'
-  if (item.status === 2) return '等待开始'
-  return '已结束'
+  if (item.studentStatus === 2) return '已结束'
+  
+  // Check exam time for not started exams
+  const now = new Date()
+  const startTime = new Date(item.startTime)
+  const endTime = new Date(item.endTime)
+  
+  if (now < startTime) return '等待开始'
+  if (now > endTime) return '已结束'
+  return '进入考试'
+}
+
+function isExamDisabled(item: any) {
+  if (item.studentStatus === 1 || item.studentStatus === 0) return false
+  if (item.studentStatus === 2) return true
+  
+  // Check exam time
+  const now = new Date()
+  const startTime = new Date(item.startTime)
+  const endTime = new Date(item.endTime)
+  
+  if (now < startTime) return true // Not started yet
+  if (now > endTime) return true // Already ended
+  return false // In progress
 }
 
 // Student Feedback
@@ -166,12 +193,12 @@ onMounted(() => {
               <el-button 
                 class="card__btn" 
                 type="primary" 
-                :disabled="item.status !== 1 && item.studentStatus === -1" 
+                :disabled="isExamDisabled(item)" 
                 round
                 @click="handleExamClick(item)"
               >
                 {{ getBtnText(item) }}
-                <Icon icon="iconoir:arrow-right" class="btn-icon" v-if="item.status === 1 || item.studentStatus !== -1" />
+                <Icon icon="iconoir:arrow-right" class="btn-icon" v-if="!isExamDisabled(item)" />
               </el-button>
             </div>
           </div>

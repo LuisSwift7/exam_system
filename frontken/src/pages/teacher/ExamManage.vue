@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { http } from '../../api/http'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Icon } from '@iconify/vue'
@@ -24,13 +24,31 @@ const previewData = ref<any>(null)
 
 // Compose
 const activeComposeTab = ref('manual') // 'manual' | 'auto'
+const autoComposeMode = ref('byCategory') // 'byCategory' | 'simple'
 const questions = ref<any[]>([])
 const selectedQIds = ref<number[]>([])
+
+const categoryOptions = [
+  '言语理解',
+  '数量关系',
+  '判断推理',
+  '资料分析',
+  '常识判断'
+]
+
 const autoStrategy = ref({
   type: 1,
   count: 10,
   score: 2,
-  difficulty: 3
+  difficulty: 3,
+  category: '',
+  categoryCounts: [
+    { category: '言语理解', count: 0, score: 2 },
+    { category: '数量关系', count: 0, score: 2 },
+    { category: '判断推理', count: 0, score: 2 },
+    { category: '资料分析', count: 0, score: 2 },
+    { category: '常识判断', count: 0, score: 2 }
+  ]
 })
 
 async function fetchList() {
@@ -122,10 +140,12 @@ async function submit() {
 async function openCompose(examId: number) {
   currentExamId.value = examId
   composeVisible.value = true
-  activeComposeTab.value = 'manual'
-  // Load questions and current selection
+  activeComposeTab.value = 'auto'
+  autoComposeMode.value = 'byCategory'
+  selectedQIds.value = []
+  
   const [qRes, sRes] = await Promise.all([
-    http.get('/api/teacher/questions?size=1000'), // Load all for now
+    http.get('/api/teacher/questions?size=1000'),
     http.get(`/api/teacher/exams/${examId}/question-ids`)
   ])
   questions.value = qRes.data.data.list
@@ -149,7 +169,19 @@ async function submitManual() {
 async function submitAuto() {
   if (!currentExamId.value) return
   try {
-    await http.post(`/api/teacher/exams/${currentExamId.value}/auto-compose`, autoStrategy.value)
+    let payload: any = {}
+    if (autoComposeMode.value === 'byCategory') {
+      const validCounts = autoStrategy.value.categoryCounts.filter((c: any) => c.count > 0)
+      if (validCounts.length === 0) {
+        ElMessage.warning('请至少设置一种题型的数量')
+        return
+      }
+      payload.categoryCounts = validCounts
+    } else {
+      payload = { ...autoStrategy.value }
+      if (payload.categoryCounts) delete payload.categoryCounts
+    }
+    await http.post(`/api/teacher/exams/${currentExamId.value}/auto-compose`, payload)
     ElMessage.success('自动组卷成功')
     composeVisible.value = false
   } catch (e: any) {
@@ -165,6 +197,14 @@ function getStatusTag(status: number) {
 
 onMounted(() => {
   fetchList()
+})
+
+const totalAutoCount = computed(() => {
+  return autoStrategy.value.categoryCounts.reduce((sum: number, c: any) => sum + (c.count || 0), 0)
+})
+
+const totalAutoScore = computed(() => {
+  return autoStrategy.value.categoryCounts.reduce((sum: number, c: any) => sum + ((c.count || 0) * (c.score || 0)), 0)
 })
 </script>
 
@@ -266,25 +306,69 @@ onMounted(() => {
         </el-tab-pane>
         
         <el-tab-pane label="自动组卷" name="auto">
-          <el-form :model="autoStrategy" label-width="100px" style="max-width: 400px; margin: 0 auto;">
-            <el-form-item label="题型">
-              <el-select v-model="autoStrategy.type">
-                <el-radio :label="1">单选题</el-radio>
-              </el-select>
-            </el-form-item>
-            <el-form-item label="题目数量">
-              <el-input-number v-model="autoStrategy.count" :min="1" />
-            </el-form-item>
-            <el-form-item label="单题分值">
-              <el-input-number v-model="autoStrategy.score" :min="1" />
-            </el-form-item>
-            <el-form-item label="难度偏好">
-              <el-rate v-model="autoStrategy.difficulty" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="submitAuto">生成试卷</el-button>
-            </el-form-item>
-          </el-form>
+          <div class="auto-compose-box">
+            <el-tabs v-model="autoComposeMode" type="border-card" style="margin-bottom: 16px;">
+              <el-tab-pane label="按题型分布" name="byCategory" />
+              <el-tab-pane label="简单模式" name="simple" />
+            </el-tabs>
+            
+            <div v-if="autoComposeMode === 'byCategory'" class="category-config">
+              <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
+                请设置每种题型的题目数量和分值
+              </el-alert>
+              <el-table :data="autoStrategy.categoryCounts" border style="width: 100%">
+                <el-table-column prop="category" label="题型" width="150" />
+                <el-table-column label="题目数量">
+                  <template #default="{ row, $index }">
+                    <el-input-number 
+                      v-model="autoStrategy.categoryCounts[$index].count" 
+                      :min="0" 
+                      :max="100" 
+                      size="small" 
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column label="单题分值">
+                  <template #default="{ row, $index }">
+                    <el-input-number 
+                      v-model="autoStrategy.categoryCounts[$index].score" 
+                      :min="1" 
+                      :max="10" 
+                      size="small" 
+                    />
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div class="auto-summary">
+                <span>总题数：{{ totalAutoCount }}</span>
+                <span>总分：{{ totalAutoScore }}</span>
+              </div>
+              <el-button type="primary" @click="submitAuto" style="margin-top: 16px;">生成试卷</el-button>
+            </div>
+            
+            <div v-else class="simple-config">
+              <el-form :model="autoStrategy" label-width="100px" style="max-width: 400px; margin: 0 auto;">
+                <el-form-item label="题型">
+                  <el-select v-model="autoStrategy.category" placeholder="全部">
+                    <el-option label="全部" value="" />
+                    <el-option v-for="cat in categoryOptions" :key="cat" :label="cat" :value="cat" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="题目数量">
+                  <el-input-number v-model="autoStrategy.count" :min="1" />
+                </el-form-item>
+                <el-form-item label="单题分值">
+                  <el-input-number v-model="autoStrategy.score" :min="1" />
+                </el-form-item>
+                <el-form-item label="难度偏好">
+                  <el-rate v-model="autoStrategy.difficulty" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="submitAuto">生成试卷</el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
@@ -365,6 +449,22 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 20px;
+}
+
+.auto-compose-box {
+  padding: 10px;
+}
+
+.auto-summary {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.auto-summary span {
+  font-weight: 500;
 }
 
 .preview-content {

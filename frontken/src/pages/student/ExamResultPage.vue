@@ -161,6 +161,25 @@ onMounted(() => {
           </div>
         </div>
 
+        <div class="category-stats" v-if="result.categoryStats && result.categoryStats.length > 0">
+          <h3 class="stats-title">题型得分统计</h3>
+          <div class="stats-grid">
+            <div v-for="stat in result.categoryStats" :key="stat.category" class="stat-card">
+              <div class="stat-category">{{ stat.category }}</div>
+              <div class="stat-score">{{ stat.score }}分</div>
+              <div class="stat-info">
+                <span>正确 {{ stat.correctCount }}/{{ stat.totalCount }}</span>
+                <span class="stat-rate">正确率 {{ (stat.accuracyRate * 100).toFixed(0) }}%</span>
+              </div>
+              <el-progress 
+                :percentage="Math.round(stat.accuracyRate * 100)" 
+                :color="stat.accuracyRate >= 0.6 ? '#67c23a' : '#f56c6c'"
+                :show-text="false"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="questions-list">
           <div v-for="(q, index) in result.questions" :key="q.id" class="q-card" :class="{ correct: q.isCorrect, wrong: !q.isCorrect }">
             <div class="q-header">
@@ -173,7 +192,7 @@ onMounted(() => {
                   <Icon icon="iconoir:chat-bubble" style="margin-right: 4px" />
                   题目反馈
                 </el-button>
-                <span class="q-meta">第 {{ index + 1 }} 题 · {{ q.type === 2 ? '多选题' : '单选题' }} · {{ q.score }}分</span>
+                <span class="q-meta">第 {{ index + 1 }} 题 · {{ q.category || '未分类' }} · {{ q.type === 2 ? '多选题' : '单选题' }} · {{ q.score }}分</span>
               </div>
             </div>
             
@@ -351,6 +370,56 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 32px;
+}
+
+.category-stats {
+  margin-bottom: 32px;
+}
+
+.stats-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1e23;
+  margin: 0 0 16px 0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.stat-category {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
+.stat-score {
+  font-size: 24px;
+  font-weight: 700;
+  color: #10d4a6;
+  margin-bottom: 8px;
+}
+
+.stat-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.stat-rate {
+  font-weight: 500;
 }
 
 .score-card {

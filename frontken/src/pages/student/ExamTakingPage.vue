@@ -11,6 +11,7 @@ const examId = route.params.id
 
 const loading = ref(true)
 const questions = ref<any[]>([])
+const currentCategory = ref('')
 const currentIdx = ref(0)
 const answers = ref<Record<number, string | string[]>>({})
 const marks = ref<Record<number, boolean>>({})
@@ -56,6 +57,26 @@ async function submitFeedback() {
 }
 
 const currentQ = computed(() => questions.value[currentIdx.value])
+
+const groupedQuestions = computed(() => {
+  const groups: Record<string, any[]> = {}
+  questions.value.forEach((q: any) => {
+    const cat = q.category || '未分类'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(q)
+  })
+  return groups
+})
+
+const categoryList = computed(() => Object.keys(groupedQuestions.value))
+
+function goToCategory(cat: string) {
+  const qList = groupedQuestions.value[cat]
+  if (qList && qList.length > 0) {
+    const idx = questions.value.findIndex((q: any) => q.id === qList[0].id)
+    if (idx >= 0) currentIdx.value = idx
+  }
+}
 
 async function initCamera() {
   try {
@@ -294,6 +315,18 @@ onUnmounted(() => {
             <span>切屏次数: {{ switchCount }} / {{ MAX_SWITCH_COUNT + 1 }}</span>
           </div>
           
+          <div class="category-tabs" v-if="categoryList.length > 1">
+            <div 
+              v-for="cat in categoryList" 
+              :key="cat"
+              class="category-tab"
+              :class="{ active: currentQ?.category === cat || (!currentQ?.category && cat === '未分类') }"
+              @click="goToCategory(cat)"
+            >
+              {{ cat }}
+            </div>
+          </div>
+          
           <div class="grid">
             <div 
               v-for="(q, idx) in questions" 
@@ -340,6 +373,7 @@ onUnmounted(() => {
         <el-empty v-if="!currentQ" description="暂无题目数据" />
         <div class="question-card" v-else>
           <div class="q-head">
+            <el-tag size="small" effect="dark" type="primary">{{ currentQ.category || '未分类' }}</el-tag>
             <el-tag size="small" effect="dark">{{ currentQ.type === 2 ? '多选题' : '单选题' }}</el-tag>
             <span class="q-idx">第 {{ currentIdx + 1 }} / {{ questions.length }} 题</span>
             <el-button 
@@ -510,6 +544,35 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.category-tab {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 16px;
+  background: #f0f2f5;
+  color: #606266;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-tab:hover {
+  background: #e6f4fe;
+  color: #409eff;
+}
+
+.category-tab.active {
+  background: #409eff;
+  color: #fff;
 }
 
 .side__head h3 {

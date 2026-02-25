@@ -42,10 +42,29 @@ public class StudentExamController {
             
             ExamRecord record = takingService.getRecord(e.getId(), user.getUserId());
             if (record != null) {
-                res.setStudentStatus(record.getStatus());
+                // Check if exam has ended
+                LocalDateTime now = LocalDateTime.now();
+                if (e.getEndTime() != null && now.isAfter(e.getEndTime())) {
+                    // Exam has ended, update record status if still in progress
+                    if (record.getStatus() == 0) {
+                        record.setStatus(2); // Set to ended
+                        takingService.updateRecordStatus(record.getId(), 2);
+                    }
+                    res.setStudentStatus(2);
+                } else {
+                    res.setStudentStatus(record.getStatus());
+                }
                 res.setRecordId(record.getId());
             } else {
-                res.setStudentStatus(-1);
+                // No record, check if exam has ended
+                LocalDateTime now = LocalDateTime.now();
+                if (e.getEndTime() != null && now.isAfter(e.getEndTime())) {
+                    res.setStudentStatus(2); // Exam ended
+                } else if (e.getStartTime() != null && now.isBefore(e.getStartTime())) {
+                    res.setStudentStatus(-1); // Not started
+                } else {
+                    res.setStudentStatus(-1); // Not taken yet
+                }
             }
             return res;
         }).collect(Collectors.toList());
