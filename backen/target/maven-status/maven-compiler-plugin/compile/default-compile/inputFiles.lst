@@ -13,6 +13,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\RegisterRequest
 D:\examSystem\backen\src\main\java\com\examsystem\controller\admin\AdminTeacherController.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\BizException.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\classroom\ClassService.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\TeacherController.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ClassStudent.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamAnswer.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ClassMapper.java

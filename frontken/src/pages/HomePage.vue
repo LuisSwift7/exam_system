@@ -21,6 +21,50 @@ const exams = ref<any[]>([])
 const activeTab = ref('student') // 'student' | 'question' | 'exam'
 const adminTab = ref('teacher') // 'teacher'
 
+// 教师控制台数据
+const dashboardLoading = ref(false)
+const dashboardOverview = ref({
+  studentCount: 0,
+  classCount: 0,
+  examCount: 0,
+  feedbackCount: 0,
+  newStudentsThisWeek: 0,
+  newClassesThisMonth: 0,
+  newExamsThisWeek: 0,
+  resolvedFeedbacksThisWeek: 0
+})
+const recentActivities = ref<any[]>([])
+
+// 处理活动按钮点击
+function handleActivityAction(activity: any) {
+  switch (activity.type) {
+    case 'class_apply':
+      // 处理班级申请
+      router.push('/teacher/class-manage');
+      break;
+    case 'exam_complete':
+      // 查看考试结果
+      router.push('/teacher/exam-manage');
+      break;
+    case 'exam_publish':
+      // 查看试卷
+      router.push('/teacher/exam-manage');
+      break;
+    case 'feedback_submit':
+      // 回复反馈
+      router.push('/teacher/feedback');
+      break;
+    default:
+      break;
+  }
+}
+
+// 查看全部活动
+function viewAllActivities() {
+  // 这里可以跳转到活动记录页面或显示更多活动
+  ElMessage.info('查看全部活动功能开发中');
+}
+
 const title = computed(() => {
   if (auth.me?.roleCode === 'TEACHER') return '教师控制台'
   if (auth.me?.roleCode === 'ADMIN') return '系统管理'
@@ -119,14 +163,50 @@ async function openMyFeedbacks() {
   }
 }
 
+async function fetchDashboardOverview() {
+  if (auth.me?.roleCode !== 'TEACHER') return
+  dashboardLoading.value = true
+  try {
+    const res = await http.get('/api/teacher/dashboard/overview')
+    dashboardOverview.value = res.data.data
+  } catch (e: any) {
+    ElMessage.error(e?.message || '获取数据概览失败')
+  } finally {
+    dashboardLoading.value = false
+  }
+}
+
+async function fetchRecentActivities() {
+  if (auth.me?.roleCode !== 'TEACHER') return
+  try {
+    const res = await http.get('/api/teacher/dashboard/activities')
+    recentActivities.value = res.data.data || []
+  } catch (e: any) {
+    ElMessage.error(e?.message || '获取最近活动失败')
+    recentActivities.value = []
+  }
+}
+
 onMounted(() => {
   fetchExams()
+  if (auth.me?.roleCode === 'TEACHER') {
+    fetchDashboardOverview()
+    fetchRecentActivities()
+  }
 })
 </script>
 
 <template>
   <div class="page">
     <div class="page__bg" />
+    <!-- 装饰元素 -->
+    <div class="decorative-elements">
+      <div class="decorative-circle circle-1"></div>
+      <div class="decorative-circle circle-2"></div>
+      <div class="decorative-circle circle-3"></div>
+      <div class="decorative-shape shape-1"></div>
+      <div class="decorative-shape shape-2"></div>
+    </div>
     
     <div class="shell">
       <header class="head">
@@ -244,7 +324,7 @@ onMounted(() => {
             <p>高效管理您的课程与考试。</p>
           </div>
           <div class="quick-stats">
-            <div class="stat-item">
+            <div class="stat-item" @click="activeTab = 'student'">
               <div class="stat-icon bg-blue">
                 <Icon icon="iconoir:group" />
               </div>
@@ -253,7 +333,7 @@ onMounted(() => {
                 <span class="stat-action">查看列表</span>
               </div>
             </div>
-            <div class="stat-item">
+            <div class="stat-item" @click="activeTab = 'question'">
               <div class="stat-icon bg-green">
                 <Icon icon="iconoir:book-stack" />
               </div>
@@ -262,10 +342,94 @@ onMounted(() => {
                 <span class="stat-action">管理试题</span>
               </div>
             </div>
+            <div class="stat-item" @click="activeTab = 'exam'">
+              <div class="stat-icon bg-purple">
+                <Icon icon="iconoir:page" />
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">试卷管理</span>
+                <span class="stat-action">创建试卷</span>
+              </div>
+            </div>
+            <div class="stat-item" @click="activeTab = 'feedback'">
+              <div class="stat-icon bg-orange">
+                <Icon icon="iconoir:chat-bubble" />
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">学生反馈</span>
+                <span class="stat-action">查看回复</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="tabs-container fade-in" style="animation-delay: 0.2s">
+        <!-- 数据概览 -->
+        <div class="dashboard-overview fade-in" style="animation-delay: 0.2s" v-loading="dashboardLoading">
+          <div class="overview-card">
+            <div class="overview-icon bg-blue">
+              <Icon icon="iconoir:user" />
+            </div>
+            <div class="overview-content">
+              <h3>学生总数</h3>
+              <p class="overview-value">{{ dashboardOverview.studentCount }}</p>
+              <p class="overview-change">+{{ dashboardOverview.newStudentsThisWeek }} 本周</p>
+            </div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-icon bg-green">
+              <Icon icon="iconoir:group" />
+            </div>
+            <div class="overview-content">
+              <h3>班级数量</h3>
+              <p class="overview-value">{{ dashboardOverview.classCount }}</p>
+              <p class="overview-change">+{{ dashboardOverview.newClassesThisMonth }} 本月</p>
+            </div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-icon bg-purple">
+              <Icon icon="iconoir:page" />
+            </div>
+            <div class="overview-content">
+              <h3>已发布试卷</h3>
+              <p class="overview-value">{{ dashboardOverview.examCount }}</p>
+              <p class="overview-change">+{{ dashboardOverview.newExamsThisWeek }} 本周</p>
+            </div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-icon bg-orange">
+              <Icon icon="iconoir:chat-bubble" />
+            </div>
+            <div class="overview-content">
+              <h3>未回复反馈</h3>
+              <p class="overview-value">{{ dashboardOverview.feedbackCount }}</p>
+              <p class="overview-change">-{{ dashboardOverview.resolvedFeedbacksThisWeek }} 本周</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 最近活动 -->
+        <div class="recent-activities fade-in" style="animation-delay: 0.3s">
+          <div class="activity-header">
+            <h2>最近活动</h2>
+            <button class="view-all-btn" @click="viewAllActivities">查看全部</button>
+          </div>
+          <div class="activity-list">
+            <div v-if="recentActivities.length === 0" class="empty-activities">
+              <p>暂无最近活动</p>
+            </div>
+            <div v-for="(activity, index) in recentActivities" :key="index" class="activity-item">
+              <div :class="['activity-icon', activity.color]">
+                <Icon :icon="activity.icon" />
+              </div>
+              <div class="activity-content">
+                <p class="activity-text" v-html="activity.text"></p>
+                <p class="activity-time">{{ activity.time }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs-container fade-in" style="animation-delay: 0.4s">
           <div class="tabs">
             <div class="tab" :class="{ active: activeTab === 'student' }" @click="activeTab = 'student'">
               <Icon icon="iconoir:group" />
@@ -290,7 +454,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="tab-content fade-in" style="animation-delay: 0.3s">
+        <div class="tab-content fade-in" style="animation-delay: 0.5s">
           <StudentManage v-if="activeTab === 'student'" />
           <ClassManage v-if="activeTab === 'class'" />
           <QuestionManage v-if="activeTab === 'question'" />
@@ -791,6 +955,202 @@ onMounted(() => {
   color: #999;
 }
 
+/* 数据概览 */
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.overview-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+.overview-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #10d4a6, #409eff);
+}
+
+.overview-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.overview-content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  margin: 0 0 8px;
+}
+
+.overview-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1a1e23;
+  margin: 0 0 4px;
+}
+
+.overview-change {
+  font-size: 12px;
+  color: #10d4a6;
+  margin: 0;
+}
+
+/* 最近活动 */
+.recent-activities {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  margin-bottom: 32px;
+}
+
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.activity-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1e23;
+  margin: 0;
+}
+
+.view-all-btn {
+  background: #f5f7fa;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-all-btn:hover {
+  background: #e4e7ed;
+  color: #1a1e23;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  transition: all 0.2s;
+  border: 1px solid #f0f0f0;
+  justify-content: space-between;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-item:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.activity-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-text {
+  font-size: 14px;
+  color: #333;
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.activity-text strong {
+  color: #1a1e23;
+  font-weight: 600;
+}
+
+.activity-time {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
+
+.activity-action {
+  background: #10d4a6;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.activity-action:hover {
+  background: #0cc096;
+  transform: translateY(-1px);
+}
+
+.empty-activities {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 颜色类 */
+.bg-purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.bg-orange { background: rgba(255, 161, 22, 0.1); color: #ff9f1c; }
+
 /* Tabs */
 .tabs-container {
   margin-bottom: 24px;
@@ -826,5 +1186,150 @@ onMounted(() => {
 
 .card__btn:hover .btn-icon {
   transform: translateX(4px);
+}
+
+/* 装饰元素 */
+.decorative-elements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.decorative-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 212, 166, 0.1), transparent 70%);
+  animation: float 6s ease-in-out infinite;
+}
+
+.circle-1 {
+  width: 120px;
+  height: 120px;
+  top: 20%;
+  right: 10%;
+  animation-delay: 0s;
+}
+
+.circle-2 {
+  width: 80px;
+  height: 80px;
+  top: 60%;
+  left: 5%;
+  animation-delay: 2s;
+}
+
+.circle-3 {
+  width: 100px;
+  height: 100px;
+  bottom: 10%;
+  right: 20%;
+  animation-delay: 4s;
+}
+
+.decorative-shape {
+  position: absolute;
+  background: linear-gradient(45deg, rgba(255, 161, 22, 0.08), transparent);
+  animation: rotate 12s linear infinite;
+}
+
+.shape-1 {
+  width: 60px;
+  height: 60px;
+  top: 30%;
+  left: 15%;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  animation-delay: 0s;
+}
+
+.shape-2 {
+  width: 40px;
+  height: 40px;
+  bottom: 20%;
+  left: 30%;
+  clip-path: polygon(0% 0%, 100% 0%, 75% 100%, 25% 100%);
+  animation-delay: 3s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 卡片装饰效果 */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #10d4a6, #409eff);
+  border-radius: 16px 16px 0 0;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+/* 欢迎区域装饰 */
+.welcome-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(16, 212, 166, 0.1), transparent 70%);
+  border-radius: 50%;
+  animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* 教师控制台装饰 */
+.dashboard-header::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  right: -20px;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(64, 158, 255, 0.1), transparent 70%);
+  border-radius: 50%;
+  animation: float 5s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.dashboard-header {
+  position: relative;
+  overflow: hidden;
 }
 </style>
