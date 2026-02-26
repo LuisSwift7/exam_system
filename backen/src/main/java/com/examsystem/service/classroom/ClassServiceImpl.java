@@ -9,6 +9,7 @@ import com.examsystem.entity.SysUser;
 import com.examsystem.mapper.ClassMapper;
 import com.examsystem.mapper.ClassStudentMapper;
 import com.examsystem.mapper.SysUserMapper;
+import com.examsystem.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class ClassServiceImpl implements ClassService {
     private final ClassMapper classMapper;
     private final ClassStudentMapper classStudentMapper;
     private final SysUserMapper sysUserMapper;
+    private final NotificationService notificationService;
 
     @Override
     public IPage<Class> getTeacherClasses(int page, int size, Long teacherId) {
@@ -161,6 +163,9 @@ public class ClassServiceImpl implements ClassService {
             cs.setCreatedTime(LocalDateTime.now());
             cs.setUpdatedTime(LocalDateTime.now());
             classStudentMapper.insert(cs);
+            
+            // 发送班级申请通知给教师
+            notificationService.createClassApplyNotification(clazz.getId(), studentId, clazz.getTeacherId());
         }
     }
 
@@ -204,6 +209,11 @@ public class ClassServiceImpl implements ClassService {
             cs.setApproveTime(LocalDateTime.now());
             cs.setUpdatedTime(LocalDateTime.now());
             classStudentMapper.updateById(cs);
+            
+            // 发送班级申请批准通知给学生
+            if (status == 1) { // 1: 批准
+                notificationService.createClassApprovedNotification(cs.getClassId(), cs.getStudentId());
+            }
         }
     }
 

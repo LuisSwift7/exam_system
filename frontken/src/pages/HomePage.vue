@@ -11,6 +11,7 @@ import ExamManage from './teacher/ExamManage.vue'
 import FeedbackManage from './teacher/FeedbackManage.vue'
 import ClassManage from './teacher/ClassManage.vue'
 import TeacherManage from './admin/TeacherManage.vue'
+import NotificationBell from '../components/NotificationBell.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -139,10 +140,13 @@ onMounted(() => {
             <span class="head__role">{{ auth.me?.roleCode }}</span>
           </div>
         </div>
-        <el-button class="head__logout" link @click="logout">
-          <Icon icon="iconoir:log-out" />
-          退出
-        </el-button>
+        <div class="head__right">
+          <NotificationBell />
+          <el-button class="head__logout" link @click="logout">
+            <Icon icon="iconoir:log-out" />
+            退出
+          </el-button>
+        </div>
       </header>
 
       <!-- Student View -->
@@ -450,6 +454,12 @@ onMounted(() => {
   font-weight: 700;
   font-size: 11px;
   opacity: 0.6;
+}
+
+.head__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .head__logout {

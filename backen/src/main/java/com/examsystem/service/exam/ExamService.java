@@ -8,10 +8,13 @@ import com.examsystem.entity.Exam;
 import com.examsystem.entity.ExamClass;
 import com.examsystem.entity.ExamQuestionRelation;
 import com.examsystem.entity.Question;
+import com.examsystem.entity.ClassStudent;
 import com.examsystem.mapper.ExamClassMapper;
 import com.examsystem.mapper.ExamMapper;
 import com.examsystem.mapper.ExamQuestionRelationMapper;
 import com.examsystem.mapper.QuestionMapper;
+import com.examsystem.mapper.ClassStudentMapper;
+import com.examsystem.service.NotificationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -36,6 +39,9 @@ public class ExamService {
     private final ExamQuestionRelationMapper relationMapper;
     private final QuestionMapper questionMapper;
     private final ExamClassMapper examClassMapper;
+    private final ClassStudentMapper classStudentMapper;
+    private final com.examsystem.service.classroom.ClassService classService;
+    private final NotificationService notificationService;
 
     public IPage<Exam> getAvailableExams(int page, int size) {
         Page<Exam> p = new Page<>(page, size);
@@ -104,6 +110,43 @@ public class ExamService {
         
         exam.setStatus(1); // 1: Published
         examMapper.updateById(exam);
+        
+        // 发送考试发布通知
+        List<Long> classIds = getExamClassIds(id);
+        if (!classIds.isEmpty()) {
+            List<Long> studentIds = new ArrayList<>();
+            for (Long classId : classIds) {
+                List<ClassStudent> classStudents = classStudentMapper.selectList(new LambdaQueryWrapper<ClassStudent>().eq(ClassStudent::getClassId, classId));
+                for (ClassStudent cs : classStudents) {
+                    studentIds.add(cs.getStudentId());
+                }
+            }
+            if (!studentIds.isEmpty()) {
+                // 获取考试名称
+                String examName = exam.getTitle();
+                // 获取班级名称
+                StringBuilder classNames = new StringBuilder();
+                for (Long classId : classIds) {
+                    com.examsystem.entity.Class clazz = classService.getClassById(classId);
+                    if (clazz != null) {
+                        classNames.append(clazz.getName()).append("、");
+                    }
+                }
+                if (classNames.length() > 0) {
+                    classNames.setLength(classNames.length() - 1);
+                }
+                // 发送通知
+                for (Long studentId : studentIds) {
+                    notificationService.createNotification(
+                            studentId,
+                            "exam_published",
+                            "考试发布通知",
+                            classNames.toString() + "的" + examName + "已发布，请及时查看",
+                            id
+                    );
+                }
+            }
+        }
     }
 
     @Transactional
