@@ -20,4 +20,5 @@ app:
   captcha:
     length: 4
     expire-seconds: 180
+  base-url: "http://localhost:8080"
 

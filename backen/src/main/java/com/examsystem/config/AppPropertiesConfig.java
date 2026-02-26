@@ -4,6 +4,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties({JwtProperties.class, CaptchaProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, CaptchaProperties.class, AppProperties.class})
 public class AppPropertiesConfig {}
 

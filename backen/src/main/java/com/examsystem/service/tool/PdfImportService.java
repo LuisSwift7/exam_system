@@ -1,51 +1,171 @@
 package com.examsystem.service.tool;
 
+import com.examsystem.common.ImageUtils;
+import com.examsystem.config.AppProperties;
+import com.examsystem.entity.Image;
 import com.examsystem.entity.Option;
 import com.examsystem.entity.Question;
+import com.examsystem.mapper.ImageMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.graphics.PDXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
 
 @Service
 @Slf4j
 public class PdfImportService {
 
-    public List<Question> parsePdf(MultipartFile file) throws IOException {
-        String text = extractText(file);
-        return parseQuestionsFromText(text);
-    }
+    @Autowired
+    private ImageMapper imageMapper;
+    
+    @Autowired
+    private AppProperties appProperties;
 
-    private String extractText(MultipartFile file) throws IOException {
+    public List<Question> parsePdf(MultipartFile file) throws IOException {
         try (PDDocument document = PDDocument.load(file.getInputStream())) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            stripper.setSortByPosition(true);
-            return stripper.getText(document);
+            // Extract images first
+            Map<String, String> imageMap = extractImages(document);
+            // Extract text
+            String text = extractText(document);
+            // Parse questions with image references
+            return parseQuestionsFromText(text, imageMap);
         }
     }
 
-    private List<Question> parseQuestionsFromText(String text) {
+    private String extractText(PDDocument document) throws IOException {
+        PDFTextStripper stripper = new PDFTextStripper();
+        stripper.setSortByPosition(true);
+        return stripper.getText(document);
+    }
+
+    private Map<String, String> extractImages(PDDocument document) throws IOException {
+        Map<String, String> imageMap = new HashMap<>();
+        int imageCounter = 1;
+        String baseDir = System.getProperty("user.dir") + "/src/main/resources/static";
+
+        for (PDPage page : document.getPages()) {
+            PDResources resources = page.getResources();
+            for (COSName name : resources.getXObjectNames()) {
+                PDXObject xobject = resources.getXObject(name);
+                if (xobject instanceof PDImageXObject) {
+                    PDImageXObject image = (PDImageXObject) xobject;
+                    BufferedImage bufferedImage = image.getImage();
+                    
+                    // Log image found
+                    log.info("Found image in PDF: width={}, height={}, format={}", 
+                            bufferedImage.getWidth(), 
+                            bufferedImage.getHeight(), 
+                            image.getSuffix());
+                    
+                    // Convert BufferedImage to MultipartFile
+                    MultipartFile imageFile = convertToMultipartFile(bufferedImage, "image" + imageCounter + ".png");
+                    
+                    // Save image and get relative path
+                    String relativePath = ImageUtils.saveImage(imageFile, baseDir, 1L); // Using 1L as default user ID
+                    
+                    // Save to database
+                    Image imageEntity = new Image();
+                    imageEntity.setFileName(relativePath.substring(relativePath.lastIndexOf('/') + 1));
+                    imageEntity.setFilePath(relativePath);
+                    imageEntity.setContentType("image/png");
+                    imageEntity.setFileSize(imageFile.getSize());
+                    imageEntity.setOriginalName("image" + imageCounter + ".png");
+                    imageEntity.setCreatedTime(LocalDateTime.now());
+                    imageEntity.setCreateBy(1L);
+                    imageMapper.insert(imageEntity);
+                    
+                    // Log image saved
+                    log.info("Image saved: id={}, path={}", imageEntity.getId(), relativePath);
+                    
+                    // Store in map with a placeholder key
+                    String imageUrl = appProperties.getBaseUrl() + "/api/images/" + imageEntity.getId();
+                    imageMap.put("[IMAGE" + imageCounter + "]", imageUrl);
+                    imageCounter++;
+                }
+            }
+        }
+
+        return imageMap;
+    }
+
+    private MultipartFile convertToMultipartFile(BufferedImage image, String fileName) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", baos);
+        byte[] bytes = baos.toByteArray();
+        
+        return new MultipartFile() {
+            @Override
+            public String getName() {
+                return fileName;
+            }
+
+            @Override
+            public String getOriginalFilename() {
+                return fileName;
+            }
+
+            @Override
+            public String getContentType() {
+                return "image/png";
+            }
+
+            @Override
+            public boolean isEmpty() {
+                return bytes.length == 0;
+            }
+
+            @Override
+            public long getSize() {
+                return bytes.length;
+            }
+
+            @Override
+            public byte[] getBytes() throws IOException {
+                return bytes;
+            }
+
+            @Override
+            public InputStream getInputStream() throws IOException {
+                return new ByteArrayInputStream(bytes);
+            }
+
+            @Override
+            public void transferTo(java.io.File dest) throws IOException, IllegalStateException {
+                try (java.io.OutputStream os = new java.io.FileOutputStream(dest)) {
+                    os.write(bytes);
+                }
+            }
+        };
+    }
+
+    private List<Question> parseQuestionsFromText(String text, Map<String, String> imageMap) {
         List<Question> questions = new ArrayList<>();
-        // Split text by lines to process line by line or use regex on full text
-        // Improved Regex strategy:
-        // Look for pattern starting with Number + Dot (e.g. "1.")
         
-        // Pattern explanation:
-        // Start: ^\d+\.\s*(.*)  -> Capture question number and content
-        // Options: [A-D]\.\s*(.*) -> Capture options
-        // Answer: 答案[：:]\s*([A-D])
-        // Analysis: 解析[：:]\s*(.*)
-        
-        // Since PDF extraction might not preserve perfect line breaks, we need to be careful.
-        // We will assume standard formatting where each part is on a new line or clearly separated.
+        // Convert imageMap to a list for sequential access
+        List<String> imageUrls = new ArrayList<>(imageMap.values());
+        int imageIndex = 0;
 
         String[] lines = text.split("\\r?\\n");
         Question currentQuestion = null;
@@ -65,6 +185,17 @@ public class PdfImportService {
             if (qMatcher.find()) {
                 // Save previous question if exists
                 if (currentQuestion != null) {
+                    // Fill empty options with images
+                    for (Option option : currentOptions) {
+                        if (option.getValue() == null || option.getValue().trim().isEmpty()) {
+                            if (imageIndex < imageUrls.size()) {
+                                option.setImageUrl(imageUrls.get(imageIndex));
+                                log.info("Filled empty option {} with image: {}", option.getKey(), imageUrls.get(imageIndex));
+                                imageIndex++;
+                            }
+                        }
+                    }
+                    
                     if (!currentOptions.isEmpty()) {
                         currentQuestion.setOptions(new ArrayList<>(currentOptions));
                     }
@@ -114,10 +245,26 @@ public class PdfImportService {
         
         // Add last question
         if (currentQuestion != null) {
+            // Fill empty options with images
+            for (Option option : currentOptions) {
+                if (option.getValue() == null || option.getValue().trim().isEmpty()) {
+                    if (imageIndex < imageUrls.size()) {
+                        option.setImageUrl(imageUrls.get(imageIndex));
+                        log.info("Filled empty option {} with image: {}", option.getKey(), imageUrls.get(imageIndex));
+                        imageIndex++;
+                    }
+                }
+            }
+            
             if (!currentOptions.isEmpty()) {
                 currentQuestion.setOptions(new ArrayList<>(currentOptions));
             }
             questions.add(currentQuestion);
+        }
+
+        // Log remaining images
+        if (imageIndex < imageUrls.size()) {
+            log.info("Remaining images not used: {}", imageUrls.size() - imageIndex);
         }
 
         return questions;
