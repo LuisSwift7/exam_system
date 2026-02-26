@@ -421,6 +421,7 @@ onUnmounted(() => {
 
           <div class="q-body">
             <div class="q-content">{{ currentQ.content }}</div>
+            <img v-if="currentQ.contentImageUrl" :src="currentQ.contentImageUrl" class="q-image" alt="Question Image" />
             
             <div class="options">
               <div 
@@ -779,8 +780,17 @@ onUnmounted(() => {
   font-size: 18px;
   line-height: 1.6;
   color: #1a1e23;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
   font-weight: 500;
+}
+
+.q-image {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 32px;
 }
 
 .options {

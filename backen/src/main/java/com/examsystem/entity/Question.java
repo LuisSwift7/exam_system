@@ -17,6 +17,7 @@ public class Question {
     private Long id;
 
     private String content;
+    private String contentImageUrl;
     private Integer type;
 
     @TableField(typeHandler = JacksonTypeHandler.class)

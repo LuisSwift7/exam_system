@@ -224,6 +224,7 @@ onMounted(() => {
             
             <div class="q-content">
               <div class="q-text">{{ q.content }}</div>
+              <img v-if="q.contentImageUrl" :src="q.contentImageUrl" class="q-image" alt="Question Image" />
               <div class="q-options">
                 <div v-for="opt in formatOption(q.options)" :key="opt.key" class="option-item"
                   :class="{
@@ -556,6 +557,15 @@ onMounted(() => {
   font-weight: 600;
   color: #1a1e23;
   line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.q-image {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
   margin-bottom: 20px;
 }
 

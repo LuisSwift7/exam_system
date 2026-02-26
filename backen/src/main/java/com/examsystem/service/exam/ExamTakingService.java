@@ -58,6 +58,7 @@ public class ExamTakingService {
             ExamResultResponse.QuestionResult qr = new ExamResultResponse.QuestionResult();
             qr.setId(q.getId());
             qr.setContent(q.getContent());
+            qr.setContentImageUrl(q.getContentImageUrl());
             qr.setType(q.getType());
             qr.setScore(scoreMap.getOrDefault(q.getId(), 0));
             qr.setOptions(q.getOptions());

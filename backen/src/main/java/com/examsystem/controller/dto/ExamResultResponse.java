@@ -19,6 +19,7 @@ public class ExamResultResponse {
     public static class QuestionResult {
         private Long id;
         private String content;
+        private String contentImageUrl;
         private Integer type;
         private Integer score;
         private List<Option> options;

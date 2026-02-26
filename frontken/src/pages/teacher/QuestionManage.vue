@@ -11,6 +11,7 @@ const formRef = ref<any>(null)
 const form = ref<any>({
   id: undefined,
   content: '',
+  contentImageUrl: '',
   type: 1,
   category: '常识判断',
   options: [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }],
@@ -50,6 +51,25 @@ async function uploadImage(file: any, optionIndex: number) {
     ElMessage.success('图片上传成功')
   } catch (e: any) {
     ElMessage.error(e?.message || '图片上传失败')
+  }
+}
+
+async function uploadContentImage(file: any) {
+  // 前端压缩图片
+  const compressedFile = await compressImage(file)
+  
+  const formData = new FormData()
+  formData.append('file', compressedFile)
+  try {
+    const res = await http.post('/api/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    // 构建完整的图片 URL
+    const baseUrl = 'http://localhost:8080'
+    form.value.contentImageUrl = baseUrl + res.data.data.url
+    ElMessage.success('题干图片上传成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '题干图片上传失败')
   }
 }
 
@@ -175,6 +195,7 @@ function handleAdd() {
   form.value = {
     id: undefined,
     content: '',
+    contentImageUrl: '',
     type: 1,
     category: '常识判断',
     options: [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }],
@@ -239,7 +260,7 @@ function handleEdit(row: any) {
     ans = []
   }
 
-  form.value = { ...row, options: opts, answer: ans }
+  form.value = { ...row, options: opts, answer: ans, contentImageUrl: row.contentImageUrl || '' }
   dialogVisible.value = true
 }
 
@@ -395,6 +416,19 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="题干" prop="content">
           <el-input type="textarea" v-model="form.content" :rows="3" />
+          <div class="content-image-upload" style="margin-top: 10px;">
+            <el-upload
+              class="avatar-uploader"
+              action=""
+              :http-request="(file) => uploadContentImage(file.file)"
+              :show-file-list="false"
+              accept="image/*"
+            >
+              <img v-if="form.contentImageUrl" :src="form.contentImageUrl" class="content-image" />
+              <el-button v-else size="small" type="primary">上传题干图片</el-button>
+            </el-upload>
+            <el-button v-if="form.contentImageUrl" size="small" type="danger" @click="form.contentImageUrl = ''">删除</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="难度" prop="difficulty">
           <el-rate v-model="form.difficulty" />
@@ -580,5 +614,14 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.content-image {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-top: 10px;
 }
 </style>
