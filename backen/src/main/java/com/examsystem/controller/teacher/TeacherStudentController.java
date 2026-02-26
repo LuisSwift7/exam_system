@@ -45,7 +45,20 @@ public class TeacherStudentController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         sysUserService.deleteStudent(id);
-        return ApiResponse.ok(null);
+        return ApiResponse.ok();
+    }
+
+    @GetMapping("/search")
+    public ApiResponse<Map<String, Object>> search(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam String keyword
+    ) {
+        IPage<SysUser> result = sysUserService.getStudents(page, size, keyword);
+        Map<String, Object> map = new HashMap<>();
+        map.put("total", result.getTotal());
+        map.put("list", result.getRecords());
+        return ApiResponse.ok(map);
     }
 
     @Data

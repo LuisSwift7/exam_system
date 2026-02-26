@@ -8,6 +8,7 @@ import com.examsystem.entity.ExamRecord;
 import com.examsystem.security.UserPrincipal;
 import com.examsystem.service.exam.ExamService;
 import com.examsystem.service.exam.ExamTakingService;
+import com.examsystem.service.classroom.ClassService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
 public class StudentExamController {
     private final ExamService examService;
     private final ExamTakingService takingService;
+    private final ClassService classService;
 
     @GetMapping
     public ApiResponse<Map<String, Object>> list(
@@ -34,7 +37,12 @@ public class StudentExamController {
             @RequestParam(defaultValue = "10") int size,
             @AuthenticationPrincipal UserPrincipal user
     ) {
-        IPage<Exam> result = examService.getAvailableExams(page, size);
+        // 获取学生所在的班级
+        List<com.examsystem.entity.Class> classes = classService.getStudentClasses(user.getUserId());
+        List<Long> classIds = classes.stream().map(com.examsystem.entity.Class::getId).collect(Collectors.toList());
+
+        // 获取学生可参加的考试（班级内的考试或无班级限制的考试）
+        IPage<Exam> result = examService.getStudentAvailableExams(page, size, user.getUserId(), classIds);
         
         List<StudentExamResponse> list = result.getRecords().stream().map(e -> {
             StudentExamResponse res = new StudentExamResponse();

@@ -18,6 +18,7 @@ export const router = createRouter({
     { path: '/student/exam/:id/taking', name: 'exam-taking', component: ExamTakingPage },
     { path: '/student/exam-result/:recordId', name: 'exam-result', component: ExamResultPage },
     { path: '/student/wrong-book', name: 'wrong-book', component: WrongBookPage },
+    { path: '/student/classes', name: 'student-classes', component: () => import('../pages/student/ClassJoinPage.vue') },
   ],
 })
 

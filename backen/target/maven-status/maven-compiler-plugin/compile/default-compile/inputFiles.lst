@@ -9,7 +9,11 @@ D:\examSystem\backen\src\main\java\com\examsystem\security\JwtAuthFilter.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\RegisterRequest.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\admin\AdminTeacherController.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\BizException.java
+D:\examSystem\backen\src\main\java\com\examsystem\service\classroom\ClassService.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\ClassStudent.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamAnswer.java
+D:\examSystem\backen\src\main\java\com\examsystem\mapper\ClassMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentClassController.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\ExamTakingController.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\ApiResponse.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\CorsConfig.java
@@ -26,6 +30,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\entity\QuestionFeedback.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamAnswerMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamQuestionRelation.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\auth\CaptchaService.java
+D:\examSystem\backen\src\main\java\com\examsystem\service\classroom\ClassServiceImpl.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherExamController.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\WrongBook.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\QuestionFeedbackMapper.java
@@ -46,8 +51,10 @@ D:\examSystem\backen\src\main\java\com\examsystem\config\JwtProperties.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\MeController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\auth\AuthService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentFeedbackController.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherClassController.java
 D:\examSystem\backen\src\main\java\com\examsystem\security\UserPrincipal.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamQuestionRelationMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\Class.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\WrongBookService.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\AppPropertiesConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\question\QuestionService.java
@@ -55,3 +62,4 @@ D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherQues
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\QuestionMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\tool\PdfImportService.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamRecord.java
+D:\examSystem\backen\src\main\java\com\examsystem\mapper\ClassStudentMapper.java

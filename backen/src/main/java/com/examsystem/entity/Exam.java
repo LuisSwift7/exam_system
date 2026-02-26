@@ -23,4 +23,5 @@ public class Exam {
     private Long createBy;
     private LocalDateTime updatedTime;
     private Long updateBy;
+    private Long classId; // 班级ID
 }

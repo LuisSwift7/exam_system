@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +37,25 @@ public class ExamService {
     public IPage<Exam> getAvailableExams(int page, int size) {
         Page<Exam> p = new Page<>(page, size);
         return examMapper.selectPage(p, new LambdaQueryWrapper<Exam>()
+                .eq(Exam::getStatus, 1)
                 .orderByDesc(Exam::getStartTime));
+    }
+
+    public IPage<Exam> getStudentAvailableExams(int page, int size, Long studentId, List<Long> classIds) {
+        Page<Exam> p = new Page<>(page, size);
+        LambdaQueryWrapper<Exam> wrapper = new LambdaQueryWrapper<Exam>()
+                .eq(Exam::getStatus, 1);
+        
+        // 处理班级ID列表为空的情况
+        if (classIds == null || classIds.isEmpty()) {
+            // 学生没有加入任何班级，返回空结果
+            wrapper.and(w -> w.eq(Exam::getId, -1)); // 确保返回空结果
+        } else {
+            // 学生加入了班级，只返回班级内的考试
+            wrapper.in(Exam::getClassId, classIds);
+        }
+        
+        return examMapper.selectPage(p, wrapper.orderByDesc(Exam::getStartTime));
     }
 
     public IPage<Exam> getExams(int page, int size, String keyword) {
@@ -51,11 +71,14 @@ public class ExamService {
     public void createExam(Exam exam) {
         exam.setId(null);
         exam.setStatus(0); // Default Not Published
+        exam.setCreatedTime(LocalDateTime.now());
+        exam.setUpdatedTime(LocalDateTime.now());
         examMapper.insert(exam);
     }
 
     public void updateExam(Exam exam) {
         if (exam.getId() == null) throw new BizException(400, "ID不能为空");
+        exam.setUpdatedTime(LocalDateTime.now());
         examMapper.updateById(exam);
     }
 

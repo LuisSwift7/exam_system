@@ -116,7 +116,7 @@ public class ExamTakingService {
         if (record != null) {
             record.setStatus(status);
             if (status == 2) { // Ended
-                record.setEndTime(LocalDateTime.now());
+                record.setSubmitTime(LocalDateTime.now());
             }
             examRecordMapper.updateById(record);
         }

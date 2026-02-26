@@ -9,6 +9,7 @@ import StudentManage from './teacher/StudentManage.vue'
 import QuestionManage from './teacher/QuestionManage.vue'
 import ExamManage from './teacher/ExamManage.vue'
 import FeedbackManage from './teacher/FeedbackManage.vue'
+import ClassManage from './teacher/ClassManage.vue'
 import TeacherManage from './admin/TeacherManage.vue'
 
 const auth = useAuthStore()
@@ -156,6 +157,10 @@ onMounted(() => {
               <Icon icon="carbon:notebook" class="btn-icon" />
               <span>错题本</span>
             </button>
+            <button class="btn-wrong-book" @click="$router.push('/student/classes')">
+              <Icon icon="iconoir:users" class="btn-icon" />
+              <span>我的班级</span>
+            </button>
             <button class="btn-wrong-book" style="margin-left: 12px; background: #fff; color: #10d4a6; border: 1px solid #10d4a6" @click="openMyFeedbacks">
               <Icon icon="iconoir:chat-bubble" class="btn-icon" />
               <span>我的反馈</span>
@@ -165,7 +170,9 @@ onMounted(() => {
         </div>
 
         <div class="grid" v-loading="loading">
-          <el-empty v-if="!loading && exams.length === 0" description="暂无考试，去休息一下吧 ~" />
+          <div v-if="!loading && exams.length === 0" class="empty-container">
+            <el-empty description="暂无考试，去休息一下吧 ~" />
+          </div>
           
           <div v-for="(item, index) in exams" :key="item.id" class="card slide-up" :style="{ animationDelay: `${index * 0.1}s` }">
             <div class="card__status">
@@ -260,6 +267,10 @@ onMounted(() => {
               <Icon icon="iconoir:group" />
               <span>学生管理</span>
             </div>
+            <div class="tab" :class="{ active: activeTab === 'class' }" @click="activeTab = 'class'">
+              <Icon icon="iconoir:user" />
+              <span>班级管理</span>
+            </div>
             <div class="tab" :class="{ active: activeTab === 'question' }" @click="activeTab = 'question'">
               <Icon icon="iconoir:book-stack" />
               <span>试题管理</span>
@@ -277,6 +288,7 @@ onMounted(() => {
 
         <div class="tab-content fade-in" style="animation-delay: 0.3s">
           <StudentManage v-if="activeTab === 'student'" />
+          <ClassManage v-if="activeTab === 'class'" />
           <QuestionManage v-if="activeTab === 'question'" />
           <ExamManage v-if="activeTab === 'exam'" />
           <FeedbackManage v-if="activeTab === 'feedback'" />
@@ -322,6 +334,14 @@ onMounted(() => {
   background: radial-gradient(circle at 80% 10%, rgba(16, 212, 166, 0.08), transparent 40%),
     radial-gradient(circle at 10% 90%, rgba(255, 161, 22, 0.08), transparent 40%);
   pointer-events: none;
+}
+
+.empty-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  grid-column: 1 / -1;
 }
 
 .feedback-list {
