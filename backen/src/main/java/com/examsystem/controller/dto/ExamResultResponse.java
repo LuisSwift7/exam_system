@@ -2,6 +2,7 @@ package com.examsystem.controller.dto;
 
 import com.examsystem.entity.Exam;
 import com.examsystem.entity.ExamRecord;
+import com.examsystem.entity.Option;
 import lombok.Data;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ public class ExamResultResponse {
         private String content;
         private Integer type;
         private Integer score;
-        private List<String> options;
+        private List<Option> options;
         private String answer;
         private String analysis;
         private String studentAnswer;

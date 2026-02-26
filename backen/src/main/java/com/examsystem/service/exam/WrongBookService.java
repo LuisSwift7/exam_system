@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.examsystem.common.BizException;
+import com.examsystem.entity.Option;
 import com.examsystem.entity.Question;
 import com.examsystem.entity.WrongBook;
 import com.examsystem.mapper.QuestionMapper;
@@ -127,7 +128,7 @@ public class WrongBookService {
     public static class WrongBookVo extends WrongBook {
         private String questionContent;
         private Integer questionType;
-        private List<String> questionOptions;
+        private List<Option> questionOptions;
         private String questionAnswer;
         private String questionAnalysis;
     }

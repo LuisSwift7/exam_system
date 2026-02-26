@@ -80,21 +80,47 @@ async function fetchReview(qId: number) {
 
 const formatOption = (opt: any) => {
   if (Array.isArray(opt)) {
-    return opt.map((o: string) => {
-      // If backend sends "A. Value", parse it
-      if (o.includes('.')) {
-        const firstDot = o.indexOf('.')
-        const key = o.substring(0, firstDot).trim()
-        const value = o.substring(firstDot + 1).trim()
-        return { key, value }
+    return opt.map((o: any) => {
+      // Check if o is an object (Option object)
+      if (typeof o === 'object' && o !== null) {
+        return {
+          key: o.key || '',
+          value: o.value || '',
+          imageUrl: o.imageUrl || ''
+        }
       }
-      // Fallback if structure is different
-      return { key: '', value: o }
+      // If o is a string, parse it
+      if (typeof o === 'string') {
+        // If backend sends "A. Value", parse it
+        if (o.includes('.')) {
+          const firstDot = o.indexOf('.')
+          const key = o.substring(0, firstDot).trim()
+          const value = o.substring(firstDot + 1).trim()
+          return { key, value, imageUrl: '' }
+        }
+        // Fallback if structure is different
+        return { key: '', value: o, imageUrl: '' }
+      }
+      // Fallback for other types
+      return { key: '', value: '', imageUrl: '' }
     })
   }
   // Fallback for string
   try {
-    return JSON.parse(opt)
+    const parsed = JSON.parse(opt)
+    if (Array.isArray(parsed)) {
+      return parsed.map((o: any) => {
+        if (typeof o === 'object' && o !== null) {
+          return {
+            key: o.key || '',
+            value: o.value || '',
+            imageUrl: o.imageUrl || ''
+          }
+        }
+        return { key: '', value: o || '', imageUrl: '' }
+      })
+    }
+    return []
   } catch {
     return []
   }
@@ -206,7 +232,10 @@ onMounted(() => {
                   }"
                 >
                   <span class="opt-key">{{ opt.key }}</span>
-                  <span class="opt-val">{{ opt.value }}</span>
+                  <div class="opt-content">
+                    <span class="opt-val">{{ opt.value }}</span>
+                    <img v-if="opt.imageUrl" :src="opt.imageUrl" class="opt-image" alt="Option Image" />
+                  </div>
                   <Icon icon="iconoir:user" v-if="q.studentAnswer?.includes(opt.key)" class="my-ans-icon" />
                   <Icon icon="iconoir:check" v-if="q.answer?.includes(opt.key)" class="correct-ans-icon" />
                 </div>
@@ -547,9 +576,24 @@ onMounted(() => {
   color: #64748b;
 }
 
-.opt-val {
+.opt-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.opt-val {
   color: #334155;
+}
+
+.opt-image {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-top: 8px;
 }
 
 .is-student-answer {

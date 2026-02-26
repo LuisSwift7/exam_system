@@ -30,6 +30,7 @@ public class SecurityConfig {
         .and()
         .authorizeRequests()
         .antMatchers("/api/auth/**").permitAll()
+        .antMatchers("/api/images/**").permitAll()
         .anyRequest().authenticated()
         .and()
         .exceptionHandling()

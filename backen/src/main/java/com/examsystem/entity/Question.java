@@ -20,7 +20,7 @@ public class Question {
     private Integer type;
 
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> options;
+    private List<Option> options;
 
     private String answer;
     private String analysis;

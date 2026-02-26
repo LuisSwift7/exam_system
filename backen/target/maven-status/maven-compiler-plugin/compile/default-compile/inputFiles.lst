@@ -3,7 +3,9 @@ D:\examSystem\backen\src\main\java\com\examsystem\service\QuestionFeedbackServic
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\LoginResponse.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherFeedbackController.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamRecordMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\ImageController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\auth\JwtService.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\Image.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\GlobalExceptionHandler.java
 D:\examSystem\backen\src\main\java\com\examsystem\security\JwtAuthFilter.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\RegisterRequest.java
@@ -35,6 +37,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherExam
 D:\examSystem\backen\src\main\java\com\examsystem\entity\WrongBook.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\QuestionFeedbackMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\AuthController.java
+D:\examSystem\backen\src\main\java\com\examsystem\common\ImageUtils.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentWrongBookController.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\QuestionReviewMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\QuestionImportController.java
@@ -58,7 +61,9 @@ D:\examSystem\backen\src\main\java\com\examsystem\entity\Class.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\WrongBookService.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\AppPropertiesConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\question\QuestionService.java
+D:\examSystem\backen\src\main\java\com\examsystem\mapper\ImageMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherQuestionController.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\Option.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamClassMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamClass.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\QuestionMapper.java

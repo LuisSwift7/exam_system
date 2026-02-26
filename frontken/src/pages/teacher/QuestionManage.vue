@@ -13,7 +13,7 @@ const form = ref<any>({
   content: '',
   type: 1,
   category: '常识判断',
-  options: [{ key: 'A', value: '' }, { key: 'B', value: '' }, { key: 'C', value: '' }, { key: 'D', value: '' }],
+  options: [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }],
   answer: [],
   analysis: '',
   difficulty: 3
@@ -33,6 +33,87 @@ const parsedQuestions = ref<any[]>([])
 const importLoading = ref(false)
 const importCategory = ref('常识判断')
 const selectedIds = ref<number[]>([])
+
+async function uploadImage(file: any, optionIndex: number) {
+  // 前端压缩图片
+  const compressedFile = await compressImage(file)
+  
+  const formData = new FormData()
+  formData.append('file', compressedFile)
+  try {
+    const res = await http.post('/api/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    // 构建完整的图片 URL
+    const baseUrl = 'http://localhost:8080'
+    form.value.options[optionIndex].imageUrl = baseUrl + res.data.data.url
+    ElMessage.success('图片上传成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '图片上传失败')
+  }
+}
+
+// 压缩图片至200k以下
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    
+    img.onload = () => {
+      // 计算压缩后的尺寸
+      let { width, height } = img
+      const maxWidth = 800
+      const maxHeight = 800
+      
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width
+        width = maxWidth
+      }
+      if (height > maxHeight) {
+        width = (width * maxHeight) / height
+        height = maxHeight
+      }
+      
+      canvas.width = width
+      canvas.height = height
+      
+      // 绘制图片
+      ctx?.drawImage(img, 0, 0, width, height)
+      
+      // 压缩图片
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            // 检查大小，如果还是超过200k，继续压缩
+            if (blob.size > 200 * 1024) {
+              // 降低质量再次压缩
+              canvas.toBlob(
+                (smallerBlob) => {
+                  if (smallerBlob) {
+                    resolve(new File([smallerBlob], file.name, { type: file.type }))
+                  } else {
+                    resolve(file)
+                  }
+                },
+                file.type,
+                0.6
+              )
+            } else {
+              resolve(new File([blob], file.name, { type: file.type }))
+            }
+          } else {
+            resolve(file)
+          }
+        },
+        file.type,
+        0.8
+      )
+    }
+    
+    img.src = URL.createObjectURL(file)
+  })
+}
 
 async function handleUpload(options: any) {
   const formData = new FormData()
@@ -96,7 +177,7 @@ function handleAdd() {
     content: '',
     type: 1,
     category: '常识判断',
-    options: [{ key: 'A', value: '' }, { key: 'B', value: '' }, { key: 'C', value: '' }, { key: 'D', value: '' }],
+    options: [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }],
     answer: [],
     analysis: '',
     difficulty: 3
@@ -107,19 +188,43 @@ function handleAdd() {
 function handleEdit(row: any) {
   let opts = []
   if (Array.isArray(row.options)) {
-    opts = row.options.map((o: string) => {
-      const [key, ...rest] = o.split('.')
-      return { key, value: rest.join('.').trim() }
-    })
+    // 检查第一个元素是否为对象（Option 对象）
+    if (row.options.length > 0 && typeof row.options[0] === 'object') {
+      // 已经是 Option 对象数组
+      opts = row.options.map((o: any) => ({
+        key: o.key,
+        value: o.value || '',
+        imageUrl: o.imageUrl || ''
+      }))
+    } else {
+      // 是字符串数组，需要转换
+      opts = row.options.map((o: string) => {
+        const [key, ...rest] = o.split('.')
+        return { key, value: rest.join('.').trim(), imageUrl: '' }
+      })
+    }
   } else if (typeof row.options === 'string') {
     try {
-      opts = JSON.parse(row.options).map((o: string) => {
-        const [key, ...rest] = o.split('.')
-        return { key, value: rest.join('.').trim() }
-      })
+      const parsedOptions = JSON.parse(row.options)
+      if (Array.isArray(parsedOptions)) {
+        // 检查第一个元素是否为对象
+        if (parsedOptions.length > 0 && typeof parsedOptions[0] === 'object') {
+          opts = parsedOptions.map((o: any) => ({
+            key: o.key,
+            value: o.value || '',
+            imageUrl: o.imageUrl || ''
+          }))
+        } else {
+          // 是字符串数组
+          opts = parsedOptions.map((o: string) => {
+            const [key, ...rest] = o.split('.')
+            return { key, value: rest.join('.').trim(), imageUrl: '' }
+          })
+        }
+      }
     } catch {
       // Fallback
-      opts = [{ key: 'A', value: '' }, { key: 'B', value: '' }, { key: 'C', value: '' }, { key: 'D', value: '' }]
+      opts = [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }]
     }
   }
   
@@ -179,12 +284,19 @@ async function submit() {
         let ans = form.value.answer
         if (form.value.type === 2 && Array.isArray(ans)) {
           ans = ans.sort().join('')
+        } else if (form.value.type === 1 && Array.isArray(ans)) {
+          // 单选类型，取第一个答案
+          ans = ans[0] || ''
         }
 
         const payload = {
           ...form.value,
           answer: ans,
-          options: form.value.options.map((o: any) => `${o.key}. ${o.value}`)
+          options: form.value.options.map((o: any) => ({
+            key: o.key,
+            value: o.value,
+            imageUrl: o.imageUrl
+          }))
         }
         
         if (form.value.id) {
@@ -244,7 +356,9 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="type" label="类型" width="100">
         <template #default="{ row }">
-          <el-tag>{{ row.type === 1 ? '单选' : '多选' }}</el-tag>
+          <el-tag>
+            {{ row.type === 1 ? '单选' : '多选' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="difficulty" label="难度" width="180">
@@ -289,7 +403,20 @@ onMounted(() => {
         <el-divider content-position="left">选项设置</el-divider>
         <div v-for="(opt, idx) in form.options" :key="idx" class="opt-row">
           <span class="opt-key">{{ opt.key }}</span>
-          <el-input v-model="opt.value" placeholder="请输入选项内容" />
+          <el-input v-model="opt.value" placeholder="请输入选项内容" style="flex: 1" />
+          <div class="opt-image-upload">
+            <el-upload
+              class="avatar-uploader"
+              action=""
+              :http-request="(file) => uploadImage(file.file, idx)"
+              :show-file-list="false"
+              accept="image/*"
+            >
+              <img v-if="opt.imageUrl" :src="opt.imageUrl" class="opt-image" />
+              <el-button v-else size="small" type="primary">上传图片</el-button>
+            </el-upload>
+            <el-button v-if="opt.imageUrl" size="small" type="danger" @click="opt.imageUrl = ''">删除</el-button>
+          </div>
         </div>
 
         <el-divider />
@@ -411,6 +538,30 @@ onMounted(() => {
 .opt-key {
   font-weight: 700;
   width: 20px;
+}
+
+.opt-image-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.opt-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.avatar-uploader :deep(.el-upload) {
+  width: 60px;
+  height: 60px;
+}
+
+.avatar-uploader :deep(.el-upload__text) {
+  display: none;
 }
 
 .actions {

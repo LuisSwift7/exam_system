@@ -162,10 +162,33 @@ async function init() {
     questions.value = qRes.data.data.map((q: any) => {
       let opts = []
       if (Array.isArray(q.options)) {
-        opts = q.options
+        // 处理选项数据，支持包含图片的选项
+        opts = q.options.map((opt: any) => {
+          if (typeof opt === 'object' && opt !== null) {
+            return opt
+          } else if (typeof opt === 'string') {
+            // 兼容旧格式
+            const [key, ...rest] = opt.split('.')
+            return { key: key.trim(), value: rest.join('.').trim() }
+          }
+          return opt
+        })
       } else if (typeof q.options === 'string') {
         try {
-          opts = JSON.parse(q.options)
+          const parsed = JSON.parse(q.options)
+          if (Array.isArray(parsed)) {
+            opts = parsed.map((opt: any) => {
+              if (typeof opt === 'object' && opt !== null) {
+                return opt
+              } else if (typeof opt === 'string') {
+                const [key, ...rest] = opt.split('.')
+                return { key: key.trim(), value: rest.join('.').trim() }
+              }
+              return opt
+            })
+          } else {
+            opts = []
+          }
         } catch {
           opts = []
         }
@@ -402,17 +425,23 @@ onUnmounted(() => {
             <div class="options">
               <div 
                 v-for="opt in currentQ.options" 
-                :key="opt"
+                :key="opt.key || opt"
                 class="option"
                 :class="{ 
                   selected: currentQ.type === 2 
-                    ? (answers[currentQ.id] as string[])?.includes(opt.split('.')[0])
-                    : answers[currentQ.id] === opt.split('.')[0] 
+                    ? (answers[currentQ.id] as string[])?.includes(opt.key || opt.split('.')[0])
+                    : answers[currentQ.id] === (opt.key || opt.split('.')[0]) 
                 }"
-                @click="selectAnswer(opt.split('.')[0])"
+                @click="selectAnswer(opt.key || opt.split('.')[0])"
               >
-                <div class="opt-key">{{ opt.split('.')[0] }}</div>
-                <div class="opt-val">{{ opt.substring(2) }}</div>
+                <div class="opt-key">{{ opt.key || opt.split('.')[0] }}</div>
+                <div class="opt-val">
+                  <span v-if="opt.value">{{ opt.value }}</span>
+                  <span v-else-if="typeof opt === 'string'">
+                    {{ opt.substring(opt.indexOf('.') + 1) }}
+                  </span>
+                  <img v-if="opt.imageUrl" :src="opt.imageUrl" class="option-image" />
+                </div>
               </div>
             </div>
           </div>
@@ -805,6 +834,15 @@ onUnmounted(() => {
   color: #333;
   line-height: 1.5;
   padding-top: 2px;
+}
+
+.option-image {
+  max-width: 100%;
+  max-height: 200px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  object-fit: contain;
 }
 
 .q-foot {

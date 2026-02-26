@@ -1,5 +1,6 @@
 package com.examsystem.service.tool;
 
+import com.examsystem.entity.Option;
 import com.examsystem.entity.Question;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -48,7 +49,7 @@ public class PdfImportService {
 
         String[] lines = text.split("\\r?\\n");
         Question currentQuestion = null;
-        List<String> currentOptions = new ArrayList<>();
+        List<Option> currentOptions = new ArrayList<>();
         
         // Patterns
         Pattern questionStartPattern = Pattern.compile("^\\d+\\.\\s*(.*)");
@@ -82,11 +83,10 @@ public class PdfImportService {
             if (currentQuestion != null) {
                 Matcher optMatcher = optionPattern.matcher(line);
                 if (optMatcher.find()) {
-                    currentOptions.add(line); // Keep the "A. content" format or strip "A."? 
-                    // Usually frontend expects full string or stripped. 
-                    // Let's keep "A. content" for simplicity in display, or better: strip it if we want structured.
-                    // But Question entity usually stores just the list.
-                    // Let's store "A. content" to be safe.
+                    Option option = new Option();
+                    option.setKey(optMatcher.group(1));
+                    option.setValue(optMatcher.group(2));
+                    currentOptions.add(option);
                     continue;
                 }
 

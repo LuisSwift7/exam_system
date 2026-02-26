@@ -1,0 +1,24 @@
+package com.examsystem.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@TableName("image")
+public class Image {
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    
+    private String fileName;
+    private String filePath;
+    private String contentType;
+    private Long fileSize;
+    private String originalName;
+    
+    private LocalDateTime createdTime;
+    private Long createBy;
+}
