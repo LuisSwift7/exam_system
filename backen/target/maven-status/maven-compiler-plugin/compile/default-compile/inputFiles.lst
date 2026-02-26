@@ -59,6 +59,8 @@ D:\examSystem\backen\src\main\java\com\examsystem\service\exam\WrongBookService.
 D:\examSystem\backen\src\main\java\com\examsystem\config\AppPropertiesConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\question\QuestionService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherQuestionController.java
+D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamClassMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamClass.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\QuestionMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\tool\PdfImportService.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamRecord.java

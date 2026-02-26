@@ -189,11 +189,13 @@ async function fetchClasses() {
   loading.value = true
   try {
     const res = await http.get('/api/teacher/classes')
-    classes.value = res.data.data.list
+    console.log('班级列表接口返回:', res.data.data.list)
+    const classList = res.data.data.list
     // 获取每个班级的学生人数和申请数
-    for (const item of classes.value) {
+    for (const item of classList) {
       await fetchClassStats(item)
     }
+    classes.value = classList
   } catch (e: any) {
     ElMessage.error(e?.message || '获取班级列表失败')
   } finally {
@@ -203,15 +205,35 @@ async function fetchClasses() {
 
 async function fetchClassStats(classItem: any) {
   try {
+    console.log(`获取班级 ${classItem.id} 的统计信息`)
     // 获取学生人数
     const studentsRes = await http.get(`/api/teacher/classes/${classItem.id}/students`)
-    classItem.studentCount = studentsRes.data.data.total
+    console.log(`学生人数返回:`, studentsRes.data.data)
+    // 检查返回数据结构，可能total字段不存在或在不同层级
+    if (studentsRes.data.data && studentsRes.data.data.list) {
+      classItem.studentCount = studentsRes.data.data.list.length
+    } else if (studentsRes.data.data && typeof studentsRes.data.data === 'number') {
+      classItem.studentCount = studentsRes.data.data
+    } else {
+      classItem.studentCount = 0
+    }
     
     // 获取申请数
     const appsRes = await http.get(`/api/teacher/classes/${classItem.id}/applications`)
-    classItem.applicationCount = appsRes.data.data.total
+    console.log(`申请数返回:`, appsRes.data.data)
+    if (appsRes.data.data && appsRes.data.data.list) {
+      classItem.applicationCount = appsRes.data.data.list.length
+    } else if (appsRes.data.data && typeof appsRes.data.data === 'number') {
+      classItem.applicationCount = appsRes.data.data
+    } else {
+      classItem.applicationCount = 0
+    }
+    console.log(`更新后的班级信息:`, classItem)
   } catch (e) {
     console.error('获取班级统计失败', e)
+    // 确保即使接口失败也有默认值
+    classItem.studentCount = 0
+    classItem.applicationCount = 0
   }
 }
 
@@ -285,11 +307,8 @@ async function addStudent() {
     await fetchClassStudents(currentClass.value.id)
     // 更新班级统计信息
     await fetchClassStats(currentClass.value)
-    // 更新班级列表中的学生人数
-    const classIndex = classes.value.findIndex((item: any) => item.id === currentClass.value.id)
-    if (classIndex !== -1) {
-      classes.value[classIndex] = currentClass.value
-    }
+    // 重新获取班级列表以更新显示
+    await fetchClasses()
     addStudentForm.value.studentId = ''
     selectedStudent.value = null
   } catch (e: any) {

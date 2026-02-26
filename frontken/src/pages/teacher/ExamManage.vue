@@ -15,8 +15,13 @@ const form = ref<any>({
   description: '',
   startTime: '',
   endTime: '',
-  duration: 60
+  duration: 60,
+  classIds: []
 })
+
+// Classes
+const classes = ref<any[]>([])
+const classesLoading = ref(false)
 
 // Preview
 const previewVisible = ref(false)
@@ -63,20 +68,36 @@ async function fetchList() {
   }
 }
 
-function handleAdd() {
+async function fetchClasses() {
+  classesLoading.value = true
+  try {
+    const res = await http.get('/api/teacher/classes?size=1000')
+    classes.value = res.data.data.list || []
+  } catch (e: any) {
+    ElMessage.error(e?.message || '获取班级列表失败')
+  } finally {
+    classesLoading.value = false
+  }
+}
+
+async function handleAdd() {
   form.value = {
     id: undefined,
     title: '',
     description: '',
     startTime: '',
     endTime: '',
-    duration: 60
+    duration: 60,
+    classIds: []
   }
+  await fetchClasses()
   dialogVisible.value = true
 }
 
-function handleEdit(row: any) {
-  form.value = { ...row }
+async function handleEdit(row: any) {
+  await fetchClasses()
+  const classIdsRes = await http.get(`/api/teacher/exams/${row.id}/classes`)
+  form.value = { ...row, classIds: classIdsRes.data.data || [] }
   dialogVisible.value = true
 }
 
@@ -123,11 +144,21 @@ async function submit() {
     const payload = { ...form.value }
     if (payload.startTime) payload.startTime = payload.startTime.replace(' ', 'T')
     if (payload.endTime) payload.endTime = payload.endTime.replace(' ', 'T')
+    
+    // Remove classIds from payload for create/update
+    const { classIds, ...examData } = payload
 
     if (form.value.id) {
-      await http.put(`/api/teacher/exams/${form.value.id}`, payload)
+      await http.put(`/api/teacher/exams/${form.value.id}`, examData)
+      await http.post(`/api/teacher/exams/${form.value.id}/classes`, { classIds })
     } else {
-      await http.post('/api/teacher/exams', payload)
+      await http.post('/api/teacher/exams', examData)
+      // Get the created exam ID
+      const exams = await http.get('/api/teacher/exams?size=1')
+      const examId = exams.data.data.list[0]?.id
+      if (examId) {
+        await http.post(`/api/teacher/exams/${examId}/classes`, { classIds })
+      }
     }
     ElMessage.success('操作成功')
     dialogVisible.value = false
@@ -254,10 +285,10 @@ const totalAutoScore = computed(() => {
     <el-dialog
       v-model="dialogVisible"
       :title="form.id ? '编辑试卷' : '创建试卷'"
-      width="500px"
+      width="600px"
       append-to-body
     >
-      <el-form :model="form" label-width="80px">
+      <el-form :model="form" label-width="100px">
         <el-form-item label="名称">
           <el-input v-model="form.title" />
         </el-form-item>
@@ -272,6 +303,22 @@ const totalAutoScore = computed(() => {
         </el-form-item>
         <el-form-item label="时长(分)">
           <el-input-number v-model="form.duration" :min="1" />
+        </el-form-item>
+        <el-form-item label="发布班级">
+          <el-select 
+            v-model="form.classIds" 
+            multiple 
+            placeholder="请选择班级（可多选）"
+            style="width: 100%"
+            :loading="classesLoading"
+          >
+            <el-option
+              v-for="cls in classes"
+              :key="cls.id"
+              :label="`${cls.name} (${cls.code})`"
+              :value="cls.id"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>

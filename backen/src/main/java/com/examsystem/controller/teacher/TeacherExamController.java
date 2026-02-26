@@ -78,9 +78,25 @@ public class TeacherExamController {
         return ApiResponse.ok(null);
     }
 
+    @PostMapping("/{id}/classes")
+    public ApiResponse<Void> setClasses(@PathVariable Long id, @RequestBody SetClassesRequest req) {
+        examService.setExamClasses(id, req.getClassIds());
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/{id}/classes")
+    public ApiResponse<List<Long>> getClasses(@PathVariable Long id) {
+        return ApiResponse.ok(examService.getExamClassIds(id));
+    }
+
     @Data
     public static class ManualComposeRequest {
         private List<Long> questionIds;
         private Integer score;
+    }
+
+    @Data
+    public static class SetClassesRequest {
+        private List<Long> classIds;
     }
 }

@@ -158,7 +158,7 @@ onMounted(() => {
               <span>错题本</span>
             </button>
             <button class="btn-wrong-book" @click="$router.push('/student/classes')">
-              <Icon icon="iconoir:users" class="btn-icon" />
+              <Icon icon="iconoir:group" class="btn-icon" />
               <span>我的班级</span>
             </button>
             <button class="btn-wrong-book" style="margin-left: 12px; background: #fff; color: #10d4a6; border: 1px solid #10d4a6" @click="openMyFeedbacks">

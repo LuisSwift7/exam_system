@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.examsystem.common.BizException;
 import com.examsystem.entity.Exam;
+import com.examsystem.entity.ExamClass;
 import com.examsystem.entity.ExamQuestionRelation;
 import com.examsystem.entity.Question;
+import com.examsystem.mapper.ExamClassMapper;
 import com.examsystem.mapper.ExamMapper;
 import com.examsystem.mapper.ExamQuestionRelationMapper;
 import com.examsystem.mapper.QuestionMapper;
@@ -33,6 +35,7 @@ public class ExamService {
     private final ExamMapper examMapper;
     private final ExamQuestionRelationMapper relationMapper;
     private final QuestionMapper questionMapper;
+    private final ExamClassMapper examClassMapper;
 
     public IPage<Exam> getAvailableExams(int page, int size) {
         Page<Exam> p = new Page<>(page, size);
@@ -51,8 +54,9 @@ public class ExamService {
             // 学生没有加入任何班级，返回空结果
             wrapper.and(w -> w.eq(Exam::getId, -1)); // 确保返回空结果
         } else {
-            // 学生加入了班级，只返回班级内的考试
-            wrapper.in(Exam::getClassId, classIds);
+            // 学生加入了班级，通过exam_class表查询班级内的考试
+            wrapper.inSql(Exam::getId, "SELECT exam_id FROM exam_class WHERE class_id IN (" + 
+                classIds.stream().map(String::valueOf).collect(Collectors.joining(",")) + ")");
         }
         
         return examMapper.selectPage(p, wrapper.orderByDesc(Exam::getStartTime));
@@ -100,6 +104,31 @@ public class ExamService {
         
         exam.setStatus(1); // 1: Published
         examMapper.updateById(exam);
+    }
+
+    @Transactional
+    public void setExamClasses(Long examId, List<Long> classIds) {
+        if (examId == null) throw new BizException(400, "试卷ID不能为空");
+        
+        // 删除旧的班级关联
+        examClassMapper.delete(new LambdaQueryWrapper<ExamClass>().eq(ExamClass::getExamId, examId));
+        
+        // 添加新的班级关联
+        if (classIds != null && !classIds.isEmpty()) {
+            for (Long classId : classIds) {
+                ExamClass examClass = new ExamClass();
+                examClass.setExamId(examId);
+                examClass.setClassId(classId);
+                examClass.setCreatedTime(LocalDateTime.now());
+                examClassMapper.insert(examClass);
+            }
+        }
+    }
+
+    public List<Long> getExamClassIds(Long examId) {
+        return examClassMapper.selectList(
+            new LambdaQueryWrapper<ExamClass>().eq(ExamClass::getExamId, examId)
+        ).stream().map(ExamClass::getClassId).collect(Collectors.toList());
     }
 
     @Transactional
