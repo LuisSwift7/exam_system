@@ -11,6 +11,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\common\GlobalExceptionHandler.
 D:\examSystem\backen\src\main\java\com\examsystem\security\JwtAuthFilter.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\RegisterRequest.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\admin\AdminTeacherController.java
+D:\examSystem\backen\src\main\java\com\examsystem\mapper\StemMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\BizException.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\classroom\ClassService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\TeacherController.java
@@ -21,6 +22,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentClas
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\ExamTakingController.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\ApiResponse.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\CorsConfig.java
+D:\examSystem\backen\src\main\java\com\examsystem\entity\Stem.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\SecurityConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\Exam.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\SysUser.java
@@ -56,6 +58,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\entity\QuestionReview.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\ExamTakingService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\LoginRequest.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\StudentExamResponse.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\StemController.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\JwtProperties.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\MeController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\auth\AuthService.java
@@ -69,6 +72,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\config\AppPropertiesConfig.jav
 D:\examSystem\backen\src\main\java\com\examsystem\service\question\QuestionService.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ImageMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherQuestionController.java
+D:\examSystem\backen\src\main\java\com\examsystem\service\StemService.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\Option.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\NotificationController.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamClassMapper.java

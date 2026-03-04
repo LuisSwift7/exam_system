@@ -31,4 +31,5 @@ public class Question {
     private Long createBy;
     private LocalDateTime updatedTime;
     private Long updateBy;
+    private Long stemId; // 用于资料分析题的共享题干标识
 }

@@ -28,6 +28,7 @@ public class ExamResultResponse {
         private String studentAnswer;
         private Integer isCorrect;
         private String category;
+        private Long stemId; // 资料分析题的共享题干ID
     }
 
     @Data

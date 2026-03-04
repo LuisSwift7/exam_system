@@ -31,6 +31,7 @@ public class SecurityConfig {
         .authorizeRequests()
         .antMatchers("/api/auth/**").permitAll()
         .antMatchers("/api/images/**").permitAll()
+        .antMatchers("/api/stems/**").permitAll()
         .anyRequest().authenticated()
         .and()
         .exceptionHandling()

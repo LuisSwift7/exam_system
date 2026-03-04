@@ -65,6 +65,7 @@ public class ExamTakingService {
             qr.setAnswer(q.getAnswer());
             qr.setAnalysis(q.getAnalysis());
             qr.setCategory(categoryMap.getOrDefault(q.getId(), q.getCategory()));
+            qr.setStemId(q.getStemId());
             
             ExamAnswer a = ansMap.get(q.getId());
             if (a != null) {

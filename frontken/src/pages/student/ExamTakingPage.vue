@@ -11,6 +11,7 @@ const examId = route.params.id
 
 const loading = ref(true)
 const questions = ref<any[]>([])
+const stems = ref<Record<number, any>>({})
 const currentCategory = ref('')
 const currentIdx = ref(0)
 const answers = ref<Record<number, string | string[]>>({})
@@ -196,7 +197,18 @@ async function init() {
       return { ...q, options: opts }
     })
 
-    // 3. Set Time
+    // 3. Get Stems for Data Analysis Questions
+    const stemIds = [...new Set(questions.value.map((q: any) => q.stemId).filter((id: any) => id))]
+    if (stemIds.length > 0) {
+      try {
+        const stemsRes = await http.get(`/api/stems/batch`, { params: { ids: stemIds } })
+        stems.value = stemsRes.data.data
+      } catch (e) {
+        console.error('Failed to fetch stems:', e)
+      }
+    }
+
+    // 4. Set Time
     if (record.remainingSeconds !== undefined) {
       timeLeft.value = record.remainingSeconds
     } else {
@@ -420,6 +432,12 @@ onUnmounted(() => {
           </div>
 
           <div class="q-body">
+            <!-- Shared Stem for Data Analysis Questions -->
+            <div v-if="currentQ.stemId && stems[currentQ.stemId]" class="q-stem">
+              <div class="stem-content">{{ stems[currentQ.stemId].content }}</div>
+              <img v-if="stems[currentQ.stemId].contentImageUrl" :src="stems[currentQ.stemId].contentImageUrl" class="stem-image" alt="Stem Image" />
+            </div>
+            
             <div class="q-content">{{ currentQ.content }}</div>
             <img v-if="currentQ.contentImageUrl" :src="currentQ.contentImageUrl" class="q-image" alt="Question Image" />
             
@@ -791,6 +809,30 @@ onUnmounted(() => {
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   margin-bottom: 32px;
+}
+
+.q-stem {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.stem-content {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #475569;
+  margin-bottom: 16px;
+}
+
+.stem-image {
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  margin-bottom: 0;
 }
 
 .options {

@@ -17,7 +17,16 @@ const form = ref<any>({
   options: [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }],
   answer: [],
   analysis: '',
-  difficulty: 3
+  difficulty: 3,
+  stemId: undefined
+})
+
+const stems = ref<any[]>([])
+const stemDialogVisible = ref(false)
+const stemForm = ref<any>({
+  id: undefined,
+  content: '',
+  contentImageUrl: ''
 })
 
 const categories = ['常识判断', '言语理解', '数量关系', '判断推理', '资料分析']
@@ -70,6 +79,68 @@ async function uploadContentImage(file: any) {
     ElMessage.success('题干图片上传成功')
   } catch (e: any) {
     ElMessage.error(e?.message || '题干图片上传失败')
+  }
+}
+
+async function uploadStemImage(file: any) {
+  // 前端压缩图片
+  const compressedFile = await compressImage(file)
+  
+  const formData = new FormData()
+  formData.append('file', compressedFile)
+  try {
+    const res = await http.post('/api/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    // 构建完整的图片 URL
+    const baseUrl = 'http://localhost:8080'
+    stemForm.value.contentImageUrl = baseUrl + res.data.data.url
+    ElMessage.success('共享题干图片上传成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '共享题干图片上传失败')
+  }
+}
+
+async function fetchStems() {
+  try {
+    const res = await http.get('/api/stems/batch', { params: { ids: [] } })
+    stems.value = Object.values(res.data || {})
+  } catch (e) {
+    console.error('Failed to fetch stems:', e)
+  }
+}
+
+function handleAddStem() {
+  stemForm.value = {
+    id: undefined,
+    content: '',
+    contentImageUrl: ''
+  }
+  stemDialogVisible.value = true
+}
+
+function handleEditStem(row: any) {
+  stemForm.value = { ...row }
+  stemDialogVisible.value = true
+}
+
+async function submitStem() {
+  try {
+    const payload = {
+      ...stemForm.value,
+      category: '资料分析'
+    }
+    
+    if (stemForm.value.id) {
+      await http.put(`/api/stems/${stemForm.value.id}`, payload)
+    } else {
+      await http.post('/api/stems', payload)
+    }
+    ElMessage.success('操作成功')
+    stemDialogVisible.value = false
+    fetchStems()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败')
   }
 }
 
@@ -201,7 +272,8 @@ function handleAdd() {
     options: [{ key: 'A', value: '', imageUrl: '' }, { key: 'B', value: '', imageUrl: '' }, { key: 'C', value: '', imageUrl: '' }, { key: 'D', value: '', imageUrl: '' }],
     answer: [],
     analysis: '',
-    difficulty: 3
+    difficulty: 3,
+    stemId: undefined
   }
   dialogVisible.value = true
 }
@@ -260,7 +332,7 @@ function handleEdit(row: any) {
     ans = []
   }
 
-  form.value = { ...row, options: opts, answer: ans, contentImageUrl: row.contentImageUrl || '' }
+  form.value = { ...row, options: opts, answer: ans, contentImageUrl: row.contentImageUrl || '', stemId: row.stemId || undefined }
   dialogVisible.value = true
 }
 
@@ -317,7 +389,8 @@ async function submit() {
             key: o.key,
             value: o.value,
             imageUrl: o.imageUrl
-          }))
+          })),
+          stemId: form.value.stemId || undefined
         }
         
         if (form.value.id) {
@@ -337,6 +410,7 @@ async function submit() {
 
 onMounted(() => {
   fetchList()
+  fetchStems()
 })
 </script>
 
@@ -407,6 +481,18 @@ onMounted(() => {
           <el-select v-model="form.category" placeholder="请选择">
             <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
           </el-select>
+        </el-form-item>
+        
+        <!-- 资料分析题的共享题干选择 -->
+        <el-form-item v-if="form.category === '资料分析'" label="共享题干">
+          <el-select v-model="form.stemId" placeholder="请选择共享题干">
+            <el-option label="无共享题干" :value="undefined" />
+            <el-option v-for="stem in stems" :key="stem.id" :label="stem.content.substring(0, 30) + (stem.content.length > 30 ? '...' : '')" :value="stem.id" />
+          </el-select>
+          <div style="margin-top: 8px; display: flex; gap: 8px;">
+            <el-button size="small" type="primary" @click="handleAddStem">添加共享题干</el-button>
+            <el-button v-if="form.stemId" size="small" @click="handleEditStem(stems.find((s: any) => s.id === form.stemId))">编辑共享题干</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="form.type" @change="form.answer = form.type === 1 ? '' : []">
@@ -533,6 +619,39 @@ onMounted(() => {
           <el-button type="primary" @click="confirmImport" :disabled="!parsedQuestions.length">
             确认导入
           </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 共享题干编辑对话框 -->
+    <el-dialog
+      v-model="stemDialogVisible"
+      :title="stemForm.id ? '编辑共享题干' : '添加共享题干'"
+      width="600px"
+      append-to-body
+    >
+      <el-form :model="stemForm" label-width="80px">
+        <el-form-item label="题干内容">
+          <el-input type="textarea" v-model="stemForm.content" :rows="4" placeholder="请输入共享题干内容" />
+          <div class="content-image-upload" style="margin-top: 10px;">
+            <el-upload
+              class="avatar-uploader"
+              action=""
+              :http-request="(file) => uploadStemImage(file.file)"
+              :show-file-list="false"
+              accept="image/*"
+            >
+              <img v-if="stemForm.contentImageUrl" :src="stemForm.contentImageUrl" class="content-image" />
+              <el-button v-else size="small" type="primary">上传题干图片</el-button>
+            </el-upload>
+            <el-button v-if="stemForm.contentImageUrl" size="small" type="danger" @click="stemForm.contentImageUrl = ''">删除</el-button>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="stemDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitStem">确定</el-button>
         </span>
       </template>
     </el-dialog>

@@ -5,7 +5,9 @@ import com.examsystem.config.AppProperties;
 import com.examsystem.entity.Image;
 import com.examsystem.entity.Option;
 import com.examsystem.entity.Question;
+import com.examsystem.entity.Stem;
 import com.examsystem.mapper.ImageMapper;
+import com.examsystem.mapper.StemMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -39,6 +41,9 @@ public class PdfImportService {
 
     @Autowired
     private ImageMapper imageMapper;
+    
+    @Autowired
+    private StemMapper stemMapper;
     
     @Autowired
     private AppProperties appProperties;
@@ -170,16 +175,87 @@ public class PdfImportService {
         String[] lines = text.split("\\r?\\n");
         Question currentQuestion = null;
         List<Option> currentOptions = new ArrayList<>();
+        Stem currentStem = null;
+        boolean inStem = false;
         
         // Patterns
         Pattern questionStartPattern = Pattern.compile("^\\d+\\.\\s*(.*)");
         Pattern optionPattern = Pattern.compile("^([A-D])\\.\\s*(.*)");
         Pattern answerPattern = Pattern.compile("^(?:答案|Answer)[:：]\\s*([A-D]).*", Pattern.CASE_INSENSITIVE);
         Pattern analysisPattern = Pattern.compile("^(?:解析|Analysis)[:：]\\s*(.*)", Pattern.CASE_INSENSITIVE);
+        Pattern stemStartPattern = Pattern.compile("^(?:资料分析|材料|材料分析)[:：]?\\s*(.*)", Pattern.CASE_INSENSITIVE);
 
         for (String line : lines) {
             line = line.trim();
             if (line.isEmpty()) continue;
+
+            // Check if this is the start of a stem (资料分析)
+            Matcher stemMatcher = stemStartPattern.matcher(line);
+            if (stemMatcher.find()) {
+                // Save previous question if exists
+                if (currentQuestion != null) {
+                    // Fill empty options with images
+                    for (Option option : currentOptions) {
+                        if (option.getValue() == null || option.getValue().trim().isEmpty()) {
+                            if (imageIndex < imageUrls.size()) {
+                                option.setImageUrl(imageUrls.get(imageIndex));
+                                log.info("Filled empty option {} with image: {}", option.getKey(), imageUrls.get(imageIndex));
+                                imageIndex++;
+                            }
+                        }
+                    }
+                    
+                    if (!currentOptions.isEmpty()) {
+                        currentQuestion.setOptions(new ArrayList<>(currentOptions));
+                    }
+                    questions.add(currentQuestion);
+                }
+                
+                // Start new stem
+                currentStem = new Stem();
+                currentStem.setContent(stemMatcher.group(1));
+                currentStem.setCategory("资料分析");
+                currentStem.setCreatedTime(LocalDateTime.now());
+                currentStem.setCreateBy(1L);
+                inStem = true;
+                currentQuestion = null;
+                currentOptions = new ArrayList<>();
+                continue;
+            }
+
+            // If we're in a stem, collect stem content
+            if (inStem && currentStem != null) {
+                // Check if this line starts a question
+                Matcher qMatcher = questionStartPattern.matcher(line);
+                if (qMatcher.find()) {
+                    // Save the stem to database
+                    stemMapper.insert(currentStem);
+                    log.info("Created stem with id: {}", currentStem.getId());
+                    
+                    // Check if there are images for the stem
+                    if (imageIndex < imageUrls.size()) {
+                        currentStem.setContentImageUrl(imageUrls.get(imageIndex));
+                        stemMapper.updateById(currentStem);
+                        log.info("Added image to stem: {}", imageUrls.get(imageIndex));
+                        imageIndex++;
+                    }
+                    
+                    // Start new question with stemId
+                    currentQuestion = new Question();
+                    currentQuestion.setContent(qMatcher.group(1));
+                    currentQuestion.setType(1); // Default to Single Choice (1) for now
+                    currentQuestion.setDifficulty(3); // Default difficulty
+                    currentQuestion.setStemId(currentStem.getId());
+                    currentQuestion.setCategory("资料分析");
+                    currentOptions = new ArrayList<>();
+                    inStem = false;
+                    continue;
+                } else {
+                    // Append to stem content
+                    currentStem.setContent(currentStem.getContent() + "\n" + line);
+                    continue;
+                }
+            }
 
             Matcher qMatcher = questionStartPattern.matcher(line);
             if (qMatcher.find()) {
