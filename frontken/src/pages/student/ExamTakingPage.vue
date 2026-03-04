@@ -377,16 +377,29 @@ function saveCachedAnswers() {
 
 function loadCachedAnswers() {
   if (recordId.value) {
-    const cached = localStorage.getItem(`exam_answers_${recordId.value}`)
-    if (cached) {
+    // 加载答案缓存
+    const cachedAnswersData = localStorage.getItem(`exam_answers_${recordId.value}`)
+    if (cachedAnswersData) {
       try {
-        cachedAnswers.value = JSON.parse(cached)
+        cachedAnswers.value = JSON.parse(cachedAnswersData)
         // 合并缓存的答案到当前答案
         Object.assign(answers.value, cachedAnswers.value)
         // 尝试上传缓存的答案
         uploadCachedAnswers()
       } catch (e) {
         console.error('Failed to load cached answers:', e)
+      }
+    }
+    
+    // 加载标记状态缓存
+    const cachedMarksData = localStorage.getItem(`exam_marks_${recordId.value}`)
+    if (cachedMarksData) {
+      try {
+        const cachedMarks = JSON.parse(cachedMarksData)
+        // 合并缓存的标记状态到当前标记
+        Object.assign(marks.value, cachedMarks)
+      } catch (e) {
+        console.error('Failed to load cached marks:', e)
       }
     }
   }
@@ -415,6 +428,17 @@ function toggleMark() {
   marks.value[qId] = !marks.value[qId]
   // Also sync mark status
   if (answers.value[qId]) selectAnswer(answers.value[qId])
+}
+
+function manualSave() {
+  if (recordId.value) {
+    // 保存当前所有答案到localStorage
+    localStorage.setItem(`exam_answers_${recordId.value}`, JSON.stringify(answers.value))
+    // 保存标记状态
+    localStorage.setItem(`exam_marks_${recordId.value}`, JSON.stringify(marks.value))
+    ElMessage.success('答案已临时保存')
+    console.log('Manual save completed')
+  }
 }
 
 async function submitExam(force = false) {
@@ -506,19 +530,16 @@ function initWebSocket() {
     
     sock.onclose = (event) => {
       console.log('WebSocket disconnected:', event.code, event.reason)
-      ElMessage.warning('WebSocket连接已断开')
     }
     
     sock.onerror = (error) => {
       console.error('WebSocket error:', error)
-      ElMessage.error('WebSocket连接错误')
     }
     
     // 保存连接实例
     ws.value = sock
   } catch (e) {
     console.error('Failed to connect with WebSocket:', e)
-    ElMessage.error('WebSocket连接失败')
   }
 }
 
@@ -605,7 +626,10 @@ onUnmounted(() => {
               <span class="dot filled small"></span> 已答
               <span class="dot marked small"></span> 标记
             </div>
-            <el-button type="primary" class="submit-btn" @click="submitExam(false)">交卷</el-button>
+            <div class="button-group">
+              <el-button type="info" class="save-btn" @click="manualSave">临时保存</el-button>
+              <el-button type="primary" class="submit-btn" @click="submitExam(false)">交卷</el-button>
+            </div>
           </div>
         </div>
 
@@ -958,8 +982,17 @@ onUnmounted(() => {
   border: none;
 }
 
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.save-btn,
 .submit-btn {
-  width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .exam-tips {
