@@ -57,7 +57,37 @@ async function submitFeedback() {
   }
 }
 
-const currentQ = computed(() => questions.value[currentIdx.value])
+// 分组题目，将具有相同stemId的题目放在一起
+const groupedQuestionsByStem = computed(() => {
+  const groups: any[] = []
+  const stemMap: Record<number, any[]> = {}
+  
+  // 首先按stemId分组
+  questions.value.forEach((q: any) => {
+    if (q.stemId) {
+      if (!stemMap[q.stemId]) {
+        stemMap[q.stemId] = []
+      }
+      stemMap[q.stemId].push(q)
+    } else {
+      // 没有stemId的题目单独一组
+      groups.push([q])
+    }
+  })
+  
+  // 将stemId分组添加到groups中
+  Object.values(stemMap).forEach(group => {
+    groups.push(group)
+  })
+  
+  return groups
+})
+
+const currentGroup = computed(() => groupedQuestionsByStem.value[currentIdx.value])
+const currentQ = computed(() => {
+  // 为了保持兼容性，返回当前组的第一个题目
+  return currentGroup.value ? currentGroup.value[0] : null
+})
 
 const groupedQuestions = computed(() => {
   const groups: Record<string, any[]> = {}
@@ -74,8 +104,11 @@ const categoryList = computed(() => Object.keys(groupedQuestions.value))
 function goToCategory(cat: string) {
   const qList = groupedQuestions.value[cat]
   if (qList && qList.length > 0) {
-    const idx = questions.value.findIndex((q: any) => q.id === qList[0].id)
-    if (idx >= 0) currentIdx.value = idx
+    // 找到包含该分类题目的第一个组
+    const groupIndex = groupedQuestionsByStem.value.findIndex((group: any[]) => {
+      return group.some((q: any) => q.category === cat)
+    })
+    if (groupIndex >= 0) currentIdx.value = groupIndex
   }
 }
 
@@ -202,7 +235,7 @@ async function init() {
     if (stemIds.length > 0) {
       try {
         const stemsRes = await http.get(`/api/stems/batch`, { params: { ids: stemIds } })
-        stems.value = stemsRes.data.data
+        stems.value = stemsRes.data
       } catch (e) {
         console.error('Failed to fetch stems:', e)
       }
@@ -241,13 +274,16 @@ const formatTime = computed(() => {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 })
 
-async function selectAnswer(val: string) {
-  if (!currentQ.value) return
+async function selectAnswer(val: string, questionId?: number, questionType?: number) {
+  const qId = questionId || currentQ.value?.id
+  const qType = questionType || currentQ.value?.type
+  
+  if (!qId || !qType) return
   
   let finalAns: string | string[] = val
-  if (currentQ.value.type === 2) {
+  if (qType === 2) {
     // Multi choice logic
-    const current = (answers.value[currentQ.value.id] as string[]) || []
+    const current = (answers.value[qId] as string[]) || []
     if (current.includes(val)) {
       finalAns = current.filter(v => v !== val)
     } else {
@@ -255,15 +291,15 @@ async function selectAnswer(val: string) {
     }
   }
   
-  answers.value[currentQ.value.id] = finalAns
+  answers.value[qId] = finalAns
   
   // Auto save
   try {
     await http.post('/api/student/exam-taking/submit-answer', {
       recordId: recordId.value,
-      questionId: currentQ.value.id,
+      questionId: qId,
       answer: Array.isArray(finalAns) ? finalAns.join('') : finalAns,
-      isMarked: marks.value[currentQ.value.id] ? 1 : 0
+      isMarked: marks.value[qId] ? 1 : 0
     })
   } catch {
     // Silent fail or retry logic
@@ -364,18 +400,18 @@ onUnmounted(() => {
           
           <div class="grid">
             <div 
-              v-for="(q, idx) in questions" 
-              :key="q.id"
+              v-for="(group, idx) in groupedQuestionsByStem" 
+              :key="idx"
               class="dot"
               :class="{ 
                 active: idx === currentIdx,
-                filled: answers[q.id],
-                marked: marks[q.id]
+                filled: group.some(q => answers[q.id]),
+                marked: group.some(q => marks[q.id])
               }"
               @click="currentIdx = idx"
             >
               {{ idx + 1 }}
-              <div class="dot__mark" v-if="marks[q.id]" />
+              <div class="dot__mark" v-if="group.some(q => marks[q.id])" />
             </div>
           </div>
 
@@ -410,7 +446,7 @@ onUnmounted(() => {
           <div class="q-head">
             <el-tag size="small" effect="dark" type="primary">{{ currentQ.category || '未分类' }}</el-tag>
             <el-tag size="small" effect="dark">{{ currentQ.type === 2 ? '多选题' : '单选题' }}</el-tag>
-            <span class="q-idx">第 {{ currentIdx + 1 }} / {{ questions.length }} 题</span>
+            <span class="q-idx">第 {{ currentIdx + 1 }} / {{ groupedQuestionsByStem.length }} 组</span>
             <el-button 
               size="small" 
               :type="marks[currentQ.id] ? 'warning' : 'default'" 
@@ -438,36 +474,41 @@ onUnmounted(() => {
               <img v-if="stems[currentQ.stemId].contentImageUrl" :src="stems[currentQ.stemId].contentImageUrl" class="stem-image" alt="Stem Image" />
             </div>
             
-            <div class="q-content">{{ currentQ.content }}</div>
-            <img v-if="currentQ.contentImageUrl" :src="currentQ.contentImageUrl" class="q-image" alt="Question Image" />
-            
-            <div class="options">
-              <div 
-                v-for="opt in currentQ.options" 
-                :key="opt.key || opt"
-                class="option"
-                :class="{ 
-                  selected: currentQ.type === 2 
-                    ? (answers[currentQ.id] as string[])?.includes(opt.key || opt.split('.')[0])
-                    : answers[currentQ.id] === (opt.key || opt.split('.')[0]) 
-                }"
-                @click="selectAnswer(opt.key || opt.split('.')[0])"
-              >
-                <div class="opt-key">{{ opt.key || opt.split('.')[0] }}</div>
-                <div class="opt-val">
-                  <span v-if="opt.value">{{ opt.value }}</span>
-                  <span v-else-if="typeof opt === 'string'">
-                    {{ opt.substring(opt.indexOf('.') + 1) }}
-                  </span>
-                  <img v-if="opt.imageUrl" :src="opt.imageUrl" class="option-image" />
+            <!-- 显示当前组中的所有题目 -->
+            <div v-for="(q, index) in currentGroup" :key="q.id" class="grouped-question">
+              <div class="question-number">第 {{ questions.indexOf(q) + 1 }} 题</div>
+              <div class="q-content">{{ q.content }}</div>
+              <img v-if="q.contentImageUrl" :src="q.contentImageUrl" class="q-image" alt="Question Image" />
+              
+              <div class="options">
+                <div 
+                  v-for="opt in q.options" 
+                  :key="opt.key || opt"
+                  class="option"
+                  :class="{ 
+                    selected: q.type === 2 
+                      ? (answers[q.id] as string[])?.includes(opt.key || opt.split('.')[0])
+                      : answers[q.id] === (opt.key || opt.split('.')[0]) 
+                  }"
+                  @click="selectAnswer(opt.key || opt.split('.')[0], q.id, q.type)"
+                >
+                  <div class="opt-key">{{ opt.key || opt.split('.')[0] }}</div>
+                  <div class="opt-val">
+                    <span v-if="opt.value">{{ opt.value }}</span>
+                    <span v-else-if="typeof opt === 'string'">
+                      {{ opt.substring(opt.indexOf('.') + 1) }}
+                    </span>
+                    <img v-if="opt.imageUrl" :src="opt.imageUrl" class="option-image" />
+                  </div>
                 </div>
               </div>
+              <div class="question-divider" v-if="index < currentGroup.length - 1"></div>
             </div>
           </div>
 
           <div class="q-foot">
             <el-button :disabled="currentIdx === 0" @click="currentIdx--">上一题</el-button>
-            <el-button type="primary" :disabled="currentIdx === questions.length - 1" @click="currentIdx++">下一题</el-button>
+            <el-button type="primary" :disabled="currentIdx === groupedQuestionsByStem.length - 1" @click="currentIdx++">下一题</el-button>
           </div>
         </div>
       </main>
@@ -817,6 +858,24 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
+}
+
+.grouped-question {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+}
+
+.question-number {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #1e293b;
+}
+
+.question-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 24px 0;
 }
 
 .stem-content {

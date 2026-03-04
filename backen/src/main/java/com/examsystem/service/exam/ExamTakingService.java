@@ -14,8 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -175,13 +177,34 @@ public class ExamTakingService {
         Map<Long, Question> qMap = questionMapper.selectBatchIds(qIds).stream()
                 .collect(Collectors.toMap(Question::getId, q -> q));
         
+        // 构建题目列表，确保同一题干的题目连续
         List<Question> questions = new ArrayList<>();
+        Map<Long, List<Question>> stemGroups = new HashMap<>();
+        Set<Long> processedStemIds = new HashSet<>();
+        
+        // 遍历题目，按原排序顺序处理
         for (ExamQuestionRelation r : relations) {
             Question q = qMap.get(r.getQuestionId());
             if (q != null) {
-                questions.add(q);
+                if (q.getStemId() != null && !processedStemIds.contains(q.getStemId())) {
+                    // 如果是资料分析题且该stemId尚未处理，添加该stemId的所有题目
+                    List<Question> stemQuestions = new ArrayList<>();
+                    for (ExamQuestionRelation r2 : relations) {
+                        Question q2 = qMap.get(r2.getQuestionId());
+                        if (q2 != null && q.getStemId().equals(q2.getStemId())) {
+                            stemQuestions.add(q2);
+                        }
+                    }
+                    questions.addAll(stemQuestions);
+                    processedStemIds.add(q.getStemId());
+                } else if (q.getStemId() == null) {
+                    // 如果是非资料分析题，直接添加
+                    questions.add(q);
+                }
+                // 资料分析题且该stemId已处理的情况，跳过，因为已经添加过了
             }
         }
+        
         return questions;
     }
 
