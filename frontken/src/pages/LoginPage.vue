@@ -84,8 +84,8 @@ async function submitLogin() {
       captchaId: captcha.value.captchaId,
       captchaCode: loginForm.captchaCode,
     })
-    const data = res.data.data as { accessToken: string }
-    auth.setToken(data.accessToken)
+    const data = res.data.data as { accessToken: string; refreshToken: string }
+    auth.setTokens(data.accessToken, data.refreshToken)
     await auth.fetchMe()
     await router.replace('/dashboard')
   } catch (e: any) {
@@ -122,7 +122,7 @@ async function submitRegister() {
 }
 
 onMounted(async () => {
-  if (auth.token) {
+  if (auth.accessToken) {
     try {
       await auth.fetchMe()
       await router.replace('/dashboard')

@@ -36,5 +36,15 @@ public class AuthController {
     authService.registerStudent(req);
     return ApiResponse.ok(null);
   }
+
+  @PostMapping("/refresh")
+  public ApiResponse<LoginResponse> refresh(@RequestBody RefreshTokenRequest req) {
+    return ApiResponse.ok(authService.refreshToken(req.getRefreshToken()));
+  }
+
+  @Data
+  public static class RefreshTokenRequest {
+    private String refreshToken;
+  }
 }
 

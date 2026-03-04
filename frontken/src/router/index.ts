@@ -32,7 +32,7 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  if (!auth.token) return { path: '/login' }
+  if (!auth.accessToken) return { path: '/login' }
   if (!auth.me) {
     try {
       await auth.fetchMe()

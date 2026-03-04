@@ -40,11 +40,14 @@ public class AuthService {
 
     sysUserService.updateLastLoginTime(user.getId());
 
-    String token = jwtService.issueToken(user.getId(), user.getUsername(), user.getRoleCode());
+    String accessToken = jwtService.issueAccessToken(user.getId(), user.getUsername(), user.getRoleCode());
+    String refreshToken = jwtService.issueRefreshToken(user.getId(), user.getUsername(), user.getRoleCode());
     return new LoginResponse(
-        token,
+        accessToken,
+        refreshToken,
         "Bearer",
-        jwtProperties.getExpireSeconds(),
+        30 * 60, // 30 minutes in seconds
+        15 * 24 * 60 * 60, // 15 days in seconds
         new LoginResponse.UserView(user.getId(), user.getUsername(), user.getRealName(), user.getRoleCode())
     );
   }
@@ -56,6 +59,35 @@ public class AuthService {
     }
     String hash = passwordEncoder.encode(req.getPassword());
     sysUserService.createStudentUser(username, hash, req.getRealName().trim());
+  }
+
+  public LoginResponse refreshToken(String refreshToken) {
+    try {
+      Claims claims = jwtService.parse(refreshToken);
+      String tokenType = (String) claims.get("tokenType");
+      if (!"refresh".equals(tokenType)) {
+        throw new BizException(3001, "无效的刷新令牌");
+      }
+      
+      Long userId = Long.parseLong(claims.getSubject());
+      String username = (String) claims.get("username");
+      String roleCode = (String) claims.get("role");
+      
+      // Generate new tokens
+      String newAccessToken = jwtService.issueAccessToken(userId, username, roleCode);
+      String newRefreshToken = jwtService.issueRefreshToken(userId, username, roleCode);
+      
+      return new LoginResponse(
+          newAccessToken,
+          newRefreshToken,
+          "Bearer",
+          30 * 60, // 30 minutes in seconds
+          15 * 24 * 60 * 60, // 15 days in seconds
+          new LoginResponse.UserView(userId, username, sysUserService.findById(userId).getRealName(), roleCode)
+      );
+    } catch (Exception e) {
+      throw new BizException(3001, "刷新令牌无效或已过期");
+    }
   }
 }
 

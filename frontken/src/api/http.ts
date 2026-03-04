@@ -1,6 +1,9 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 
+let isRefreshing = false
+let refreshSubscribers: ((token: string) => void)[] = []
+
 export const http = axios.create({
   baseURL: 'http://localhost:8080',
   timeout: 15000,
@@ -8,9 +11,9 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const auth = useAuthStore()
-  if (auth.token) {
+  if (auth.accessToken) {
     config.headers = config.headers ?? {}
-    config.headers.Authorization = `Bearer ${auth.token}`
+    config.headers.Authorization = `Bearer ${auth.accessToken}`
   }
   return config
 })
@@ -26,6 +29,44 @@ http.interceptors.response.use(
     }
     return res
   },
-  (err) => Promise.reject(err),
+  async (err) => {
+    const auth = useAuthStore()
+    const originalRequest = err.config
+    
+    if (err.response?.data?.code === 3001 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Wait for token refresh to complete
+        return new Promise((resolve) => {
+          refreshSubscribers.push((token: string) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(http(originalRequest))
+          })
+        })
+      }
+      
+      originalRequest._retry = true
+      isRefreshing = true
+      
+      try {
+        const refreshed = await auth.refreshTokens()
+        if (refreshed) {
+          // Retry original request
+          originalRequest.headers.Authorization = `Bearer ${auth.accessToken}`
+          // Resolve all pending requests
+          refreshSubscribers.forEach(cb => cb(auth.accessToken))
+          refreshSubscribers = []
+          return http(originalRequest)
+        } else {
+          // Refresh failed, logout
+          auth.logout()
+          return Promise.reject(err)
+        }
+      } finally {
+        isRefreshing = false
+      }
+    }
+    
+    return Promise.reject(err)
+  },
 )
 
