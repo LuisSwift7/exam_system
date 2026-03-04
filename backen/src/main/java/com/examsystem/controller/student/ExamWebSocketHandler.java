@@ -23,10 +23,32 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        System.out.println("WebSocket connection established: " + session.getUri());
         // 从路径中获取recordId
         String path = session.getUri().getPath();
+        System.out.println("WebSocket path: " + path);
         String[] parts = path.split("/");
-        Long recordId = Long.parseLong(parts[parts.length - 2]);
+        System.out.println("WebSocket path parts length: " + parts.length);
+        for (int i = 0; i < parts.length; i++) {
+            System.out.println("Part " + i + ": " + parts[i]);
+        }
+        
+        // 查找recordId - 它应该在"exam-taking"之后
+        Long recordId = null;
+        for (int i = 0; i < parts.length; i++) {
+            if ("exam-taking".equals(parts[i]) && i + 1 < parts.length) {
+                try {
+                    recordId = Long.parseLong(parts[i + 1]);
+                    break;
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid recordId format: " + parts[i + 1]);
+                }
+            }
+        }
+        
+        if (recordId == null) {
+            throw new IllegalArgumentException("Unable to extract recordId from path: " + path);
+        }
         
         sessions.put(recordId, session);
         System.out.println("WebSocket connected: " + recordId);
@@ -38,9 +60,9 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         // 从路径中获取recordId
-        String path = session.getUri().getPath();
-        String[] parts = path.split("/");
-        Long recordId = Long.parseLong(parts[parts.length - 2]);
+        Long recordId = extractRecordId(session);
+        
+        System.out.println("Received message from recordId " + recordId + ": " + message.getPayload());
         
         // 解析消息
         Map<?, ?> data = objectMapper.readValue(message.getPayload(), Map.class);
@@ -50,7 +72,13 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
         switch (type) {
             case "heartbeat":
                 // 响应心跳
+                System.out.println("Heartbeat received from recordId " + recordId);
                 sendMessage(recordId, Map.of("type", "heartbeatResponse"));
+                break;
+            case "test":
+                // 处理测试消息
+                System.out.println("Test message received from recordId " + recordId);
+                sendMessage(recordId, Map.of("type", "testResponse", "message", "Hello from server"));
                 break;
             default:
                 System.out.println("Unknown message type: " + type);
@@ -60,12 +88,37 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         // 从路径中获取recordId
-        String path = session.getUri().getPath();
-        String[] parts = path.split("/");
-        Long recordId = Long.parseLong(parts[parts.length - 2]);
+        Long recordId = extractRecordId(session);
         
         sessions.remove(recordId);
         System.out.println("WebSocket disconnected: " + recordId);
+    }
+    
+    /**
+     * 从WebSocket会话中提取recordId
+     */
+    private Long extractRecordId(WebSocketSession session) {
+        String path = session.getUri().getPath();
+        String[] parts = path.split("/");
+        
+        // 查找recordId - 它应该在"exam-taking"之后
+        Long recordId = null;
+        for (int i = 0; i < parts.length; i++) {
+            if ("exam-taking".equals(parts[i]) && i + 1 < parts.length) {
+                try {
+                    recordId = Long.parseLong(parts[i + 1]);
+                    break;
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid recordId format: " + parts[i + 1]);
+                }
+            }
+        }
+        
+        if (recordId == null) {
+            throw new IllegalArgumentException("Unable to extract recordId from path: " + path);
+        }
+        
+        return recordId;
     }
 
     @Override

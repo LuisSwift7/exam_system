@@ -1,4 +1,5 @@
 <script setup lang="ts">
+
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { http } from '../../api/http'
@@ -38,7 +39,7 @@ const feedbackContent = ref('')
 const cachedAnswers = ref<Record<number, string | string[]>>({})
 
 // WebSocket
-const ws = ref<WebSocket | null>(null)
+const ws = ref<any | null>(null)
 
 function openFeedbackDialog() {
   feedbackContent.value = ''
@@ -453,56 +454,71 @@ function initWebSocket() {
     return
   }
   
-  // 建立WebSocket连接
+  // 建立原生WebSocket连接
   const wsUrl = `ws://localhost:8080/api/student/exam-taking/${recordId.value}/ws`
   console.log('WebSocket connecting to:', wsUrl)
-  ws.value = new WebSocket(wsUrl)
   
-  ws.value.onopen = () => {
-    console.log('WebSocket connected successfully')
-    // 发送心跳
-    setInterval(() => {
-      if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-        console.log('Sending heartbeat')
-        ws.value.send(JSON.stringify({ type: 'heartbeat' }))
-      }
-    }, 30000)
-  }
-  
-  ws.value.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data)
-      console.log('WebSocket message received:', message)
-      
-      // 处理服务器消息
-      switch (message.type) {
-        case 'serverMessage':
-          ElMessage.info(message.content)
-          break
-        case 'captureRequest':
-          captureImage()
-          break
-        case 'heartbeatResponse':
-          console.log('Heartbeat response received')
-          break
-        case 'connectionSuccess':
-          console.log('Connection success message:', message)
-          break
-        default:
-          break
-      }
-    } catch (e) {
-      console.error('Failed to parse WebSocket message:', e)
-      console.error('Raw message:', event.data)
+  try {
+    // 创建原生WebSocket实例
+    const sock = new WebSocket(wsUrl)
+    
+    sock.onopen = () => {
+      console.log('WebSocket connected successfully')
+      // 发送心跳
+      setInterval(() => {
+        if (sock.readyState === 1) { // 1 = OPEN
+          console.log('Sending heartbeat')
+          sock.send(JSON.stringify({ type: 'heartbeat' }))
+        }
+      }, 30000)
     }
-  }
-  
-  ws.value.onclose = (event) => {
-    console.log('WebSocket disconnected:', event.code, event.reason)
-  }
-  
-  ws.value.onerror = (error) => {
-    console.error('WebSocket error:', error)
+    
+    sock.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data)
+        console.log('WebSocket message received:', message)
+        
+        // 处理服务器消息
+        switch (message.type) {
+          case 'serverMessage':
+            ElMessage.info(message.content)
+            break
+          case 'captureRequest':
+            captureImage()
+            break
+          case 'heartbeatResponse':
+            console.log('Heartbeat response received')
+            break
+          case 'connectionSuccess':
+            console.log('Connection success message:', message)
+            break
+          case 'testResponse':
+            console.log('Test response received:', message)
+            break
+          default:
+            break
+        }
+      } catch (e) {
+        console.error('Failed to parse WebSocket message:', e)
+        console.error('Raw message:', event.data)
+      }
+    }
+    
+    sock.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.code, event.reason)
+      ElMessage.warning('WebSocket连接已断开')
+    }
+    
+    sock.onerror = (error) => {
+      console.error('WebSocket error:', error)
+      ElMessage.error('WebSocket连接错误')
+    }
+    
+    // 保存连接实例
+    ws.value = sock
+  } catch (e) {
+    console.error('Failed to connect with WebSocket:', e)
+    ElMessage.error('WebSocket连接失败')
   }
 }
 
@@ -513,7 +529,11 @@ onUnmounted(() => {
     mediaStream.value.getTracks().forEach(track => track.stop())
   }
   if (ws.value) {
-    ws.value.close()
+    try {
+      ws.value.close()
+    } catch (e) {
+      console.error('Failed to close WebSocket:', e)
+    }
   }
   document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('blur', onBlur)

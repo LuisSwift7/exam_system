@@ -32,6 +32,7 @@ public class SecurityConfig {
         .antMatchers("/api/auth/**").permitAll()
         .antMatchers("/api/images/**").permitAll()
         .antMatchers("/api/stems/**").permitAll()
+        .antMatchers("/api/student/exam-taking/**").permitAll()
         .anyRequest().authenticated()
         .and()
         .exceptionHandling()
