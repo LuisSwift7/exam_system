@@ -1,11 +1,19 @@
 package com.examsystem.controller.student;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.examsystem.service.exam.ExamTakingService;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+
+import java.io.*;
+import java.nio.file.*;
+import java.util.Base64;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
 import java.util.Map;
@@ -15,8 +23,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@RequiredArgsConstructor
 public class ExamWebSocketHandler extends TextWebSocketHandler {
 
+    private final ExamTakingService examTakingService;
     private final Map<Long, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
@@ -79,6 +89,11 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
                 // 处理测试消息
                 System.out.println("Test message received from recordId " + recordId);
                 sendMessage(recordId, Map.of("type", "testResponse", "message", "Hello from server"));
+                break;
+            case "capture":
+                // 处理抓拍图片
+                System.out.println("Capture received from recordId " + recordId);
+                handleCapture(recordId, data);
                 break;
             default:
                 System.out.println("Unknown message type: " + type);
@@ -174,6 +189,107 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
         }, 0, 60, TimeUnit.SECONDS);
     }
 
+    /**
+     * 处理抓拍图片
+     */
+    private void handleCapture(Long recordId, Map<?, ?> data) {
+        try {
+            String base64Image = (String) data.get("image");
+            Long timestamp = (Long) data.get("timestamp");
+            
+            if (base64Image == null || timestamp == null) {
+                System.err.println("Missing required fields for capture");
+                return;
+            }
+            
+            // 解码Base64图片
+            String base64Data = base64Image.split(",")[1]; // 移除data:image/png;base64,前缀
+            byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+            
+            // 创建MultipartFile实例
+            MultipartFile multipartFile = new Base64MultipartFile(
+                "capture_" + timestamp + ".png",
+                "image/png",
+                imageBytes
+            );
+            
+            // 调用服务保存图片和记录
+            examTakingService.saveCapture(multipartFile, recordId);
+            
+            // 发送确认消息
+            sendMessage(recordId, Map.of(
+                "type", "captureResponse",
+                "message", "图片上传成功",
+                "fileName", "capture_" + timestamp + ".png"
+            ));
+            
+        } catch (Exception e) {
+            System.err.println("Error handling capture: " + e.getMessage());
+            e.printStackTrace();
+            
+            // 发送错误消息
+            sendMessage(recordId, Map.of(
+                "type", "captureError",
+                "message", "图片上传失败"
+            ));
+        }
+    }
+    
+    /**
+     * Base64转MultipartFile实现类
+     */
+    private static class Base64MultipartFile implements org.springframework.web.multipart.MultipartFile {
+        private final String name;
+        private final String contentType;
+        private final byte[] content;
+        
+        public Base64MultipartFile(String name, String contentType, byte[] content) {
+            this.name = name;
+            this.contentType = contentType;
+            this.content = content;
+        }
+        
+        @Override
+        public String getName() {
+            return name;
+        }
+        
+        @Override
+        public String getOriginalFilename() {
+            return name;
+        }
+        
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+        
+        @Override
+        public boolean isEmpty() {
+            return content == null || content.length == 0;
+        }
+        
+        @Override
+        public long getSize() {
+            return content.length;
+        }
+        
+        @Override
+        public byte[] getBytes() throws IOException {
+            return content;
+        }
+        
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return new ByteArrayInputStream(content);
+        }
+        
+        @Override
+        public void transferTo(File dest) throws IOException, IllegalStateException {
+            Files.write(dest.toPath(), content);
+        }
+    }
+    
     /**
      * 停止心跳检测
      */

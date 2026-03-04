@@ -22,6 +22,5 @@ public class ExamRecord {
     private LocalDateTime submitTime;
     private LocalDateTime createdTime;
 
-    @TableField(exist = false)
     private Long remainingSeconds;
 }

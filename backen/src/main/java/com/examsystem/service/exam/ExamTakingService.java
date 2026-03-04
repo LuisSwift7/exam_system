@@ -145,25 +145,29 @@ public class ExamTakingService {
         // Check if already started
         ExamRecord record = getRecord(examId, studentId);
         if (record != null) {
-            // Always reset start time to ensure recalculation after withdrawal
-            // This ensures that the exam time is restarted after submission is withdrawn
-            LocalDateTime now = LocalDateTime.now();
-            record.setStartTime(now);
-            record.setStatus(0); // Reset to in progress
-            record.setSubmitTime(null); // Clear submit time
-            record.setScore(null); // Clear score
-            examRecordMapper.updateById(record);
-            
-            // Clear all answers' correctness flags
-            List<ExamAnswer> answers = examAnswerMapper.selectList(
-                new LambdaQueryWrapper<ExamAnswer>()
-                    .eq(ExamAnswer::getRecordId, record.getId())
-            );
-            for (ExamAnswer answer : answers) {
-                answer.setIsCorrect(null);
-                examAnswerMapper.updateById(answer);
+            // Only reset start time if exam was submitted (status = 1)
+            // For normal refresh, keep original start time
+            if (record.getStatus() == 1) {
+                // Reset start time for withdrawn exams
+                LocalDateTime now = LocalDateTime.now();
+                record.setStartTime(now);
+                record.setStatus(0); // Reset to in progress
+                record.setSubmitTime(null); // Clear submit time
+                record.setScore(null); // Clear score
+                examRecordMapper.updateById(record);
+                
+                // Clear all answers' correctness flags
+                List<ExamAnswer> answers = examAnswerMapper.selectList(
+                    new LambdaQueryWrapper<ExamAnswer>()
+                        .eq(ExamAnswer::getRecordId, record.getId())
+                );
+                for (ExamAnswer answer : answers) {
+                    answer.setIsCorrect(null);
+                    examAnswerMapper.updateById(answer);
+                }
             }
             
+            // Calculate remaining time based on original start time
             long duration = exam.getDuration() * 60L;
             long elapsed = java.time.Duration.between(record.getStartTime(), LocalDateTime.now()).getSeconds();
             record.setRemainingSeconds(Math.max(0, duration - elapsed));

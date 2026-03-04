@@ -164,13 +164,28 @@ function captureImage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       
-      // 发送到服务器
-      const formData = new FormData()
-      formData.append('image', blob, `capture_${Date.now()}.png`)
-      formData.append('recordId', recordId.value?.toString() || '')
-      
-      http.post('/api/student/exam-taking/capture', formData)
-        .catch(err => console.error('Capture upload failed:', err))
+      // 转换为Base64通过WebSocket发送
+      const reader = new FileReader()
+      reader.onload = function(e) {
+        const base64Image = e.target?.result as string
+        if (ws.value && ws.value.readyState === 1) {
+          ws.value.send(JSON.stringify({
+            type: 'capture',
+            recordId: recordId.value,
+            image: base64Image,
+            timestamp: Date.now()
+          }))
+        } else {
+          // 如果WebSocket未连接，回退到HTTP POST
+          const formData = new FormData()
+          formData.append('image', blob, `capture_${Date.now()}.png`)
+          formData.append('recordId', recordId.value?.toString() || '')
+          
+          http.post('/api/student/exam-taking/capture', formData)
+            .catch(err => console.error('Capture upload failed:', err))
+        }
+      }
+      reader.readAsDataURL(blob)
     }
   })
 }
