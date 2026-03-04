@@ -158,12 +158,25 @@ function handleClosePractice() {
   currentQ.value = null
 }
 
-function getOptionKey(opt: string) {
-  return opt.split('.')[0]
+function getOptionKey(opt: any) {
+  if (typeof opt === 'object' && opt !== null && opt.key) {
+    return opt.key
+  }
+  if (typeof opt === 'string') {
+    return opt.split('.')[0]
+  }
+  return opt
 }
 
-function getOptionContent(opt: string) {
-  return opt.substring(2)
+function getOptionContent(opt: any) {
+  if (typeof opt === 'object' && opt !== null && opt.value) {
+    return opt.value
+  }
+  if (typeof opt === 'string') {
+    const index = opt.indexOf('.')
+    return index > -1 ? opt.substring(index + 1) : opt
+  }
+  return opt
 }
 
 onMounted(() => {
