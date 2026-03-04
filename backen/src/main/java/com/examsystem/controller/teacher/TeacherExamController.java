@@ -89,6 +89,17 @@ public class TeacherExamController {
         return ApiResponse.ok(examService.getExamClassIds(id));
     }
 
+    @GetMapping("/{id}/submissions")
+    public ApiResponse<List<Map<String, Object>>> getSubmissions(@PathVariable Long id) {
+        return ApiResponse.ok(examService.getExamSubmissions(id));
+    }
+
+    @PostMapping("/{id}/withdraw-submission/{recordId}")
+    public ApiResponse<Void> withdrawSubmission(@PathVariable Long id, @PathVariable Long recordId) {
+        examService.withdrawSubmission(recordId);
+        return ApiResponse.ok(null);
+    }
+
     @Data
     public static class ManualComposeRequest {
         private List<Long> questionIds;

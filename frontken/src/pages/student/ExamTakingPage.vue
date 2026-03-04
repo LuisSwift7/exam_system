@@ -28,10 +28,17 @@ let lastViolationTime = 0
 // Camera
 const videoRef = ref<HTMLVideoElement | null>(null)
 const mediaStream = ref<MediaStream | null>(null)
+const captureTimer = ref<number | null>(null)
 
 // Feedback
 const feedbackDialogVisible = ref(false)
 const feedbackContent = ref('')
+
+// Local cache
+const cachedAnswers = ref<Record<number, string | string[]>>({})
+
+// WebSocket
+const ws = ref<WebSocket | null>(null)
 
 function openFeedbackDialog() {
   feedbackContent.value = ''
@@ -126,10 +133,52 @@ async function initCamera() {
     if (videoRef.value) {
       videoRef.value.srcObject = stream
     }
+    startCaptureTimer()
   } catch (err) {
     console.error('Camera Error:', err)
     ElMessage.warning('无法访问摄像头，请检查设备权限')
   }
+}
+
+function captureImage() {
+  if (!videoRef.value) return
+  
+  const canvas = document.createElement('canvas')
+  canvas.width = 320
+  canvas.height = 240
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
+  
+  // 保存到本地
+  canvas.toBlob((blob) => {
+    if (blob) {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `capture_${Date.now()}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      // 发送到服务器
+      const formData = new FormData()
+      formData.append('image', blob, `capture_${Date.now()}.png`)
+      formData.append('recordId', recordId.value?.toString() || '')
+      
+      http.post('/api/student/exam-taking/capture', formData)
+        .catch(err => console.error('Capture upload failed:', err))
+    }
+  })
+}
+
+function startCaptureTimer() {
+  // 每3分钟抓拍一次
+  captureTimer.value = window.setInterval(() => {
+    captureImage()
+  }, 3 * 60 * 1000)
 }
 
 function handleViolation() {
@@ -183,6 +232,9 @@ async function init() {
     const startRes = await http.post(`/api/student/exam-taking/${examId}/start`)
     const record = startRes.data.data
     recordId.value = record.id
+    
+    // 初始化WebSocket连接
+    initWebSocket()
     
     // Check if completed
     if (record.status === 1) {
@@ -249,6 +301,9 @@ async function init() {
       timeLeft.value = detailRes.data.data.duration * 60
     }
     
+    // 5. Load cached answers
+    loadCachedAnswers()
+    
     startTimer()
   } catch (e: any) {
     ElMessage.error(e?.message || '初始化考试失败')
@@ -301,8 +356,55 @@ async function selectAnswer(val: string, questionId?: number, questionType?: num
       answer: Array.isArray(finalAns) ? finalAns.join('') : finalAns,
       isMarked: marks.value[qId] ? 1 : 0
     })
+    // 上传成功后，从缓存中移除
+    if (cachedAnswers.value[qId]) {
+      delete cachedAnswers.value[qId]
+      saveCachedAnswers()
+    }
   } catch {
-    // Silent fail or retry logic
+    // 网络失败，缓存到localStorage
+    cachedAnswers.value[qId] = finalAns
+    saveCachedAnswers()
+  }
+}
+
+function saveCachedAnswers() {
+  if (recordId.value) {
+    localStorage.setItem(`exam_answers_${recordId.value}`, JSON.stringify(cachedAnswers.value))
+  }
+}
+
+function loadCachedAnswers() {
+  if (recordId.value) {
+    const cached = localStorage.getItem(`exam_answers_${recordId.value}`)
+    if (cached) {
+      try {
+        cachedAnswers.value = JSON.parse(cached)
+        // 合并缓存的答案到当前答案
+        Object.assign(answers.value, cachedAnswers.value)
+        // 尝试上传缓存的答案
+        uploadCachedAnswers()
+      } catch (e) {
+        console.error('Failed to load cached answers:', e)
+      }
+    }
+  }
+}
+
+async function uploadCachedAnswers() {
+  for (const [qId, answer] of Object.entries(cachedAnswers.value)) {
+    try {
+      await http.post('/api/student/exam-taking/submit-answer', {
+        recordId: recordId.value,
+        questionId: Number(qId),
+        answer: Array.isArray(answer) ? answer.join('') : answer,
+        isMarked: marks.value[Number(qId)] ? 1 : 0
+      })
+      delete cachedAnswers.value[Number(qId)]
+      saveCachedAnswers()
+    } catch (e) {
+      console.error('Failed to upload cached answer:', e)
+    }
   }
 }
 
@@ -345,10 +447,73 @@ onMounted(() => {
   window.addEventListener('blur', onBlur)
 })
 
+function initWebSocket() {
+  if (!recordId.value) {
+    console.log('WebSocket initialization skipped: recordId is null')
+    return
+  }
+  
+  // 建立WebSocket连接
+  const wsUrl = `ws://localhost:8080/api/student/exam-taking/${recordId.value}/ws`
+  console.log('WebSocket connecting to:', wsUrl)
+  ws.value = new WebSocket(wsUrl)
+  
+  ws.value.onopen = () => {
+    console.log('WebSocket connected successfully')
+    // 发送心跳
+    setInterval(() => {
+      if (ws.value && ws.value.readyState === WebSocket.OPEN) {
+        console.log('Sending heartbeat')
+        ws.value.send(JSON.stringify({ type: 'heartbeat' }))
+      }
+    }, 30000)
+  }
+  
+  ws.value.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data)
+      console.log('WebSocket message received:', message)
+      
+      // 处理服务器消息
+      switch (message.type) {
+        case 'serverMessage':
+          ElMessage.info(message.content)
+          break
+        case 'captureRequest':
+          captureImage()
+          break
+        case 'heartbeatResponse':
+          console.log('Heartbeat response received')
+          break
+        case 'connectionSuccess':
+          console.log('Connection success message:', message)
+          break
+        default:
+          break
+      }
+    } catch (e) {
+      console.error('Failed to parse WebSocket message:', e)
+      console.error('Raw message:', event.data)
+    }
+  }
+  
+  ws.value.onclose = (event) => {
+    console.log('WebSocket disconnected:', event.code, event.reason)
+  }
+  
+  ws.value.onerror = (error) => {
+    console.error('WebSocket error:', error)
+  }
+}
+
 onUnmounted(() => {
   if (timer.value) clearInterval(timer.value)
+  if (captureTimer.value) clearInterval(captureTimer.value)
   if (mediaStream.value) {
     mediaStream.value.getTracks().forEach(track => track.stop())
+  }
+  if (ws.value) {
+    ws.value.close()
   }
   document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('blur', onBlur)

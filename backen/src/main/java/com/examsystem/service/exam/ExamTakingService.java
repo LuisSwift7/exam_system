@@ -11,6 +11,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.web.multipart.MultipartFile;
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,10 +29,11 @@ import java.util.stream.Collectors;
 public class ExamTakingService {
     private final ExamMapper examMapper;
     private final ExamRecordMapper examRecordMapper;
+    private final ExamAnswerMapper examAnswerMapper;
     private final ExamQuestionRelationMapper relationMapper;
     private final QuestionMapper questionMapper;
-    private final ExamAnswerMapper examAnswerMapper;
     private final WrongBookMapper wrongBookMapper;
+    private final ImageMapper imageMapper;
 
     public Exam getExam(Long examId) {
         return examMapper.selectById(examId);
@@ -141,6 +145,25 @@ public class ExamTakingService {
         // Check if already started
         ExamRecord record = getRecord(examId, studentId);
         if (record != null) {
+            // Always reset start time to ensure recalculation after withdrawal
+            // This ensures that the exam time is restarted after submission is withdrawn
+            LocalDateTime now = LocalDateTime.now();
+            record.setStartTime(now);
+            record.setStatus(0); // Reset to in progress
+            record.setSubmitTime(null); // Clear submit time
+            record.setScore(null); // Clear score
+            examRecordMapper.updateById(record);
+            
+            // Clear all answers' correctness flags
+            List<ExamAnswer> answers = examAnswerMapper.selectList(
+                new LambdaQueryWrapper<ExamAnswer>()
+                    .eq(ExamAnswer::getRecordId, record.getId())
+            );
+            for (ExamAnswer answer : answers) {
+                answer.setIsCorrect(null);
+                examAnswerMapper.updateById(answer);
+            }
+            
             long duration = exam.getDuration() * 60L;
             long elapsed = java.time.Duration.between(record.getStartTime(), LocalDateTime.now()).getSeconds();
             record.setRemainingSeconds(Math.max(0, duration - elapsed));
@@ -273,6 +296,33 @@ public class ExamTakingService {
         
         record.setScore(totalScore);
         examRecordMapper.updateById(record);
+    }
+
+    @Transactional
+    public void saveCapture(MultipartFile image, Long recordId) throws IOException {
+        // 生成唯一的文件名
+        String originalFilename = image.getOriginalFilename();
+        String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf('.')) : ".png";
+        String filename = "capture_" + System.currentTimeMillis() + extension;
+        
+        // 保存图片到本地磁盘
+        String uploadPath = "D:/examSystem/uploads/captures/";
+        File directory = new File(uploadPath);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+        File dest = new File(uploadPath + filename);
+        image.transferTo(dest);
+        
+        // 创建Image实体并保存到数据库
+        Image img = new Image();
+        img.setName(filename);
+        img.setPath("/uploads/captures/" + filename);
+        img.setSize(image.getSize());
+        img.setType(image.getContentType());
+        img.setExamRecordId(recordId);
+        img.setCreatedTime(LocalDateTime.now());
+        imageMapper.insert(img);
     }
 
     private void saveWrongQuestion(Long studentId, Long questionId, Long examId) {

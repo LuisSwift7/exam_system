@@ -9,11 +9,18 @@ import com.examsystem.entity.ExamClass;
 import com.examsystem.entity.ExamQuestionRelation;
 import com.examsystem.entity.Question;
 import com.examsystem.entity.ClassStudent;
+import com.examsystem.entity.ExamRecord;
+import com.examsystem.entity.ExamAnswer;
+import com.examsystem.entity.SysUser;
 import com.examsystem.mapper.ExamClassMapper;
 import com.examsystem.mapper.ExamMapper;
 import com.examsystem.mapper.ExamQuestionRelationMapper;
 import com.examsystem.mapper.QuestionMapper;
 import com.examsystem.mapper.ClassStudentMapper;
+import com.examsystem.mapper.ExamRecordMapper;
+import com.examsystem.mapper.ExamAnswerMapper;
+import com.examsystem.mapper.SysUserMapper;
+import java.util.HashMap;
 import com.examsystem.service.NotificationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +47,9 @@ public class ExamService {
     private final QuestionMapper questionMapper;
     private final ExamClassMapper examClassMapper;
     private final ClassStudentMapper classStudentMapper;
+    private final ExamRecordMapper examRecordMapper;
+    private final ExamAnswerMapper examAnswerMapper;
+    private final SysUserMapper sysUserMapper;
     private final com.examsystem.service.classroom.ClassService classService;
     private final NotificationService notificationService;
 
@@ -264,6 +274,73 @@ public class ExamService {
 
     public List<Long> getExamQuestionIds(Long examId) {
         return relationMapper.selectQuestionIdsByExamId(examId);
+    }
+
+    public List<Map<String, Object>> getExamSubmissions(Long examId) {
+        // 检查试卷是否存在
+        Exam exam = examMapper.selectById(examId);
+        if (exam == null) {
+            throw new BizException(400, "试卷不存在");
+        }
+        
+        // 获取该试卷的所有考试记录
+        List<ExamRecord> records = examRecordMapper.selectList(
+            new LambdaQueryWrapper<ExamRecord>()
+                .eq(ExamRecord::getExamId, examId)
+                .eq(ExamRecord::getStatus, 1) // 只获取已提交的记录
+                .orderByDesc(ExamRecord::getSubmitTime)
+        );
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ExamRecord record : records) {
+            Map<String, Object> submission = new HashMap<>();
+            submission.put("recordId", record.getId());
+            submission.put("studentId", record.getStudentId());
+            submission.put("score", record.getScore());
+            submission.put("submitTime", record.getSubmitTime());
+            
+            // 获取学生信息
+            SysUser student = sysUserMapper.selectById(record.getStudentId());
+            if (student != null) {
+                submission.put("studentName", student.getRealName());
+                submission.put("studentNumber", student.getUsername());
+            }
+            
+            result.add(submission);
+        }
+        
+        return result;
+    }
+
+    @Transactional
+    public void withdrawSubmission(Long recordId) {
+        // 检查记录是否存在
+        ExamRecord record = examRecordMapper.selectById(recordId);
+        if (record == null) {
+            throw new BizException(400, "考试记录不存在");
+        }
+        
+        // 检查记录是否已提交
+        if (record.getStatus() != 1) {
+            throw new BizException(400, "该记录尚未提交，无法撤回");
+        }
+        
+        // 将记录状态改为未提交
+        record.setStatus(0);
+        record.setSubmitTime(null);
+        record.setScore(null);
+        record.setStartTime(null); // 重置开始时间，以便重新计算答题时间
+        examRecordMapper.updateById(record);
+        
+        // 清除所有答案的正确性标记，因为考试状态已重置
+        List<ExamAnswer> answers = examAnswerMapper.selectList(
+            new LambdaQueryWrapper<ExamAnswer>()
+                .eq(ExamAnswer::getRecordId, recordId)
+        );
+        for (ExamAnswer answer : answers) {
+            answer.setIsCorrect(null);
+            examAnswerMapper.updateById(answer);
+        }
     }
 
     public ExamPreviewVo getExamPreview(Long id) {

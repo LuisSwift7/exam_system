@@ -33,6 +33,12 @@ const autoComposeMode = ref('byCategory') // 'byCategory' | 'simple'
 const questions = ref<any[]>([])
 const selectedQIds = ref<number[]>([])
 
+// Submissions
+const submissionsVisible = ref(false)
+const submissions = ref<any[]>([])
+const submissionsLoading = ref(false)
+const currentSubmissionExamId = ref<number | null>(null)
+
 const categoryOptions = [
   '言语理解',
   '数量关系',
@@ -135,6 +141,40 @@ async function handlePreview(row: any) {
     previewVisible.value = true
   } catch (e: any) {
     ElMessage.error(e?.message || '加载预览失败')
+  }
+}
+
+async function handleSubmissions(row: any) {
+  try {
+    submissionsLoading.value = true
+    currentSubmissionExamId.value = row.id
+    const res = await http.get(`/api/teacher/exams/${row.id}/submissions`)
+    submissions.value = res.data.data
+    submissionsVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '获取提交记录失败')
+  } finally {
+    submissionsLoading.value = false
+  }
+}
+
+async function handleWithdraw(recordId: number) {
+  try {
+    await ElMessageBox.confirm('确认撤回该提交记录？撤回后学生可以重新作答。', '撤回确认', {
+      type: 'warning',
+      confirmButtonText: '确认撤回'
+    })
+    await http.post(`/api/teacher/exams/0/withdraw-submission/${recordId}`)
+    ElMessage.success('撤回成功')
+    // 重新加载提交记录
+    if (currentSubmissionExamId.value) {
+      const res = await http.get(`/api/teacher/exams/${currentSubmissionExamId.value}/submissions`)
+      submissions.value = res.data.data
+    }
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.message || '撤回失败')
+    }
   }
 }
 
@@ -262,7 +302,7 @@ const totalAutoScore = computed(() => {
           <el-tag :type="getStatusTag(row.status).type as any">{{ getStatusTag(row.status).text }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="250" fixed="right">
+      <el-table-column label="操作" width="320" fixed="right">
         <template #default="{ row }">
           <el-button 
             link 
@@ -276,6 +316,7 @@ const totalAutoScore = computed(() => {
           <el-button link type="info" size="small" @click="handlePreview(row)">预览</el-button>
           <el-button link type="primary" size="small" @click="openCompose(row.id)">组卷</el-button>
           <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button link type="warning" size="small" @click="handleSubmissions(row)">提交记录</el-button>
           <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
         </template>
       </el-table-column>
@@ -463,6 +504,28 @@ const totalAutoScore = computed(() => {
           </div>
           <el-empty v-if="previewData.questions.length === 0" description="暂无题目，请先进行组卷" />
         </div>
+      </div>
+    </el-drawer>
+
+    <!-- Submissions Drawer -->
+    <el-drawer v-model="submissionsVisible" title="提交记录" size="600px" append-to-body>
+      <div class="submissions-content">
+        <el-table :data="submissions" v-loading="submissionsLoading" style="width: 100%">
+          <el-table-column prop="studentName" label="学生姓名" width="120" />
+          <el-table-column prop="studentNumber" label="学号" width="150" />
+          <el-table-column prop="score" label="分数" width="80" />
+          <el-table-column prop="submitTime" label="提交时间" width="180">
+            <template #default="{ row }">
+              {{ row.submitTime?.replace('T', ' ').slice(0, 16) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="danger" size="small" @click="handleWithdraw(row.recordId)">撤回</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-if="!submissionsLoading && submissions.length === 0" description="暂无提交记录" />
       </div>
     </el-drawer>
   </div>

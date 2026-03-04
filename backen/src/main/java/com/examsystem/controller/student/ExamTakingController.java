@@ -4,6 +4,7 @@ import com.examsystem.common.ApiResponse;
 import com.examsystem.controller.dto.ExamResultResponse;
 import com.examsystem.entity.Exam;
 import com.examsystem.entity.ExamRecord;
+import com.examsystem.entity.Image;
 import com.examsystem.entity.Question;
 import com.examsystem.security.UserPrincipal;
 import com.examsystem.service.exam.ExamTakingService;
@@ -11,7 +12,10 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +60,13 @@ public class ExamTakingController {
     @PostMapping("/submit-exam")
     public ApiResponse<Void> submitExam(@RequestBody Map<String, Long> body) {
         takingService.submitExam(body.get("recordId"));
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/capture")
+    public ApiResponse<Void> capture(@RequestParam("image") MultipartFile image, @RequestParam("recordId") Long recordId) throws IOException {
+        // 保存图片到本地和数据库
+        takingService.saveCapture(image, recordId);
         return ApiResponse.ok(null);
     }
 
