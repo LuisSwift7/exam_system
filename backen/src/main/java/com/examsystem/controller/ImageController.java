@@ -29,65 +29,59 @@ public class ImageController {
     private ImageMapper imageMapper;
     
     @PostMapping("/upload/image")
-    public ApiResponse<?> uploadImage(@RequestParam("file") MultipartFile file, Authentication authentication) {
+    public ApiResponse<?> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
-            // 获取当前用户ID
-            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-            Long userId = userPrincipal.getUserId();
-            
             // 保存图片
-            String baseDir = System.getProperty("user.dir") + "/src/main/resources/static";
-            String relativePath = ImageUtils.saveImage(file, baseDir, userId);
+            // Use absolute path for storage
+            String uploadDir = "D:/examSystem/uploads";
+            java.io.File dir = new java.io.File(uploadDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            String filePath = "/uploads/" + fileName;
+            java.io.File dest = new java.io.File(uploadDir + "/" + fileName);
+            file.transferTo(dest);
             
             // 保存到数据库
             Image image = new Image();
-            image.setFileName(relativePath.substring(relativePath.lastIndexOf('/') + 1));
-            image.setFilePath(relativePath);
-            image.setContentType(file.getContentType());
-            image.setFileSize(file.getSize());
-            image.setOriginalName(file.getOriginalFilename());
+            image.setName(fileName);
+            image.setPath(filePath);
+            image.setType(file.getContentType());
+            image.setSize(file.getSize());
             image.setCreatedTime(LocalDateTime.now());
-            image.setCreateBy(userId);
             imageMapper.insert(image);
             
             // 返回图片URL
-            String imageUrl = "/api/images/" + image.getId();
-            java.util.Map<String, String> result = new java.util.HashMap<>();
-            result.put("url", imageUrl);
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("url", "http://localhost:8080/api/images/" + image.getId());
+            result.put("id", image.getId());
             return ApiResponse.ok(result);
         } catch (IOException e) {
-            return ApiResponse.fail(500, "上传失败: " + e.getMessage());
+             return ApiResponse.fail(500, "上传失败: " + e.getMessage());
         }
     }
     
     @GetMapping("/images/{id}")
     public ResponseEntity<Resource> getImage(@PathVariable Long id) {
         try {
-            // 从数据库获取图片信息
             Image image = imageMapper.selectById(id);
             if (image == null) {
                 return ResponseEntity.notFound().build();
             }
             
-            // 构建图片文件路径
-            String baseDir = System.getProperty("user.dir") + "/src/main/resources/static";
-            Path filePath = Paths.get(baseDir, image.getFilePath());
+            String filePath = "D:/examSystem" + image.getPath();
+            java.io.File file = new java.io.File(filePath);
             
-            // 检查文件是否存在
-            if (!Files.exists(filePath)) {
+            if (!file.exists()) {
                 return ResponseEntity.notFound().build();
             }
             
-            // 创建文件资源
-            Resource resource = new FileSystemResource(filePath);
-            
-            // 设置响应头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType(image.getContentType()));
-            headers.setContentDispositionFormData("attachment", image.getFileName());
+            Resource resource = new FileSystemResource(file);
             
             return ResponseEntity.ok()
-                    .headers(headers)
+                    .contentType(MediaType.parseMediaType(image.getType()))
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();

@@ -7,6 +7,7 @@ import com.examsystem.controller.dto.LoginResponse;
 import com.examsystem.controller.dto.RegisterRequest;
 import com.examsystem.entity.SysUser;
 import com.examsystem.service.user.SysUserService;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;

@@ -92,13 +92,11 @@ public class PdfImportService {
                     
                     // Save to database
                     Image imageEntity = new Image();
-                    imageEntity.setFileName(relativePath.substring(relativePath.lastIndexOf('/') + 1));
-                    imageEntity.setFilePath(relativePath);
-                    imageEntity.setContentType("image/png");
-                    imageEntity.setFileSize(imageFile.getSize());
-                    imageEntity.setOriginalName("image" + imageCounter + ".png");
+                    imageEntity.setName(relativePath.substring(relativePath.lastIndexOf('/') + 1));
+                    imageEntity.setPath(relativePath);
+                    imageEntity.setType("image/png");
+                    imageEntity.setSize(imageFile.getSize());
                     imageEntity.setCreatedTime(LocalDateTime.now());
-                    imageEntity.setCreateBy(1L);
                     imageMapper.insert(imageEntity);
                     
                     // Log image saved

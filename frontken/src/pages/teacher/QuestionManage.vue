@@ -6,6 +6,9 @@ import { Icon } from '@iconify/vue'
 
 const loading = ref(false)
 const list = ref<any[]>([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
 const dialogVisible = ref(false)
 const formRef = ref<any>(null)
 const form = ref<any>({
@@ -56,7 +59,7 @@ async function uploadImage(file: any, optionIndex: number) {
     })
     // 构建完整的图片 URL
     const baseUrl = 'http://localhost:8080'
-    form.value.options[optionIndex].imageUrl = baseUrl + res.data.data.url
+    form.value.options[optionIndex].imageUrl = res.data.data.url
     ElMessage.success('图片上传成功')
   } catch (e: any) {
     ElMessage.error(e?.message || '图片上传失败')
@@ -94,7 +97,7 @@ async function uploadStemImage(file: any) {
     })
     // 构建完整的图片 URL
     const baseUrl = 'http://localhost:8080'
-    stemForm.value.contentImageUrl = baseUrl + res.data.data.url
+    stemForm.value.contentImageUrl = res.data.data.url
     ElMessage.success('共享题干图片上传成功')
   } catch (e: any) {
     ElMessage.error(e?.message || '共享题干图片上传失败')
@@ -251,15 +254,28 @@ async function fetchList() {
   try {
     const res = await http.get('/api/teacher/questions', {
       params: {
+        page: currentPage.value,
+        size: pageSize.value,
         category: filterCategory.value || undefined
       }
     })
     list.value = res.data.data.list
+    total.value = res.data.data.total
   } catch (e: any) {
     ElMessage.error(e?.message || '获取列表失败')
   } finally {
     loading.value = false
   }
+}
+
+function handleSizeChange(val: number) {
+  pageSize.value = val
+  fetchList()
+}
+
+function handleCurrentChange(val: number) {
+  currentPage.value = val
+  fetchList()
 }
 
 function handleAdd() {
@@ -469,6 +485,18 @@ onMounted(() => {
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
 
     <el-dialog
       v-model="dialogVisible"
@@ -742,5 +770,11 @@ onMounted(() => {
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   margin-top: 10px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 </style>

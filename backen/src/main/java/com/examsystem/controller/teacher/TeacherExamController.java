@@ -5,6 +5,7 @@ import com.examsystem.common.ApiResponse;
 import com.examsystem.entity.Exam;
 import com.examsystem.entity.Image;
 import com.examsystem.service.exam.ExamService;
+import com.examsystem.dto.AutoGenerateRequest;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -76,6 +77,15 @@ public class TeacherExamController {
     @PostMapping("/{id}/auto-compose")
     public ApiResponse<Void> autoCompose(@PathVariable Long id, @RequestBody ExamService.AutoComposeStrategy strategy) {
         examService.autoCompose(id, strategy);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/genetic-auto-compose")
+    public ApiResponse<Void> geneticAutoCompose(@RequestBody AutoGenerateRequest request) {
+        if (request.getExamId() == null) {
+            throw new com.examsystem.common.BizException(400, "试卷ID不能为空");
+        }
+        examService.geneticAutoCompose(request.getExamId(), request);
         return ApiResponse.ok(null);
     }
 

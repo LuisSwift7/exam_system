@@ -22,6 +22,8 @@ import com.examsystem.mapper.ExamRecordMapper;
 import com.examsystem.mapper.ExamAnswerMapper;
 import com.examsystem.mapper.SysUserMapper;
 import com.examsystem.mapper.ImageMapper;
+import com.examsystem.algorithm.GeneticAlgorithm;
+import com.examsystem.dto.AutoGenerateRequest;
 import java.util.HashMap;
 import com.examsystem.service.NotificationService;
 import lombok.Data;
@@ -59,6 +61,7 @@ public class ExamService {
     private final ImageMapper imageMapper;
     private final com.examsystem.service.classroom.ClassService classService;
     private final NotificationService notificationService;
+    private final GeneticAlgorithm geneticAlgorithm;
 
     public IPage<Exam> getAvailableExams(int page, int size) {
         Page<Exam> p = new Page<>(page, size);
@@ -276,6 +279,58 @@ public class ExamService {
                 r.setCategory(q.getCategory());
                 relationMapper.insert(r);
             }
+        }
+    }
+
+    @Transactional
+    public void geneticAutoCompose(Long examId, AutoGenerateRequest request) {
+        // 1. 清理旧题目
+        relationMapper.delete(new LambdaQueryWrapper<ExamQuestionRelation>().eq(ExamQuestionRelation::getExamId, examId));
+
+        // 2. 获取候选题目池
+        LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
+        
+        List<Integer> types = new ArrayList<>();
+        if (request.getTypeConfigs() != null) {
+            types = request.getTypeConfigs().stream().map(AutoGenerateRequest.TypeConfig::getType).collect(Collectors.toList());
+        }
+        
+        if (!types.isEmpty()) {
+            wrapper.in(Question::getType, types);
+        }
+        
+        // 知识点筛选 (Category)
+        if (request.getKnowledgePointRequirements() != null && !request.getKnowledgePointRequirements().isEmpty()) {
+            wrapper.in(Question::getCategory, request.getKnowledgePointRequirements().keySet());
+        }
+
+        List<Question> candidatePool = questionMapper.selectList(wrapper);
+        
+        if (candidatePool.isEmpty()) {
+            throw new BizException(400, "题库中没有符合条件的题目");
+        }
+
+        // 3. 执行遗传算法
+        List<Question> selectedQuestions = geneticAlgorithm.generatePaper(candidatePool, request);
+
+        // 4. 保存结果
+        int order = 1;
+        // 构建类型分值映射
+        Map<Integer, Integer> typeScores = new HashMap<>();
+        if (request.getTypeConfigs() != null) {
+            for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
+                typeScores.put(config.getType(), config.getScore());
+            }
+        }
+
+        for (Question q : selectedQuestions) {
+            ExamQuestionRelation r = new ExamQuestionRelation();
+            r.setExamId(examId);
+            r.setQuestionId(q.getId());
+            r.setScore(typeScores.getOrDefault(q.getType(), 2)); // 默认2分
+            r.setSortOrder(order++);
+            r.setCategory(q.getCategory());
+            relationMapper.insert(r);
         }
     }
 

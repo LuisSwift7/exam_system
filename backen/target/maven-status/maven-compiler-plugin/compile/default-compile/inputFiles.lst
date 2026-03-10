@@ -19,6 +19,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\controller\TeacherController.j
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ClassStudent.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamAnswer.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ClassMapper.java
+D:\examSystem\backen\src\main\java\com\examsystem\config\MybatisPlusConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentClassController.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\ExamTakingController.java
 D:\examSystem\backen\src\main\java\com\examsystem\common\ApiResponse.java
@@ -71,11 +72,13 @@ D:\examSystem\backen\src\main\java\com\examsystem\config\WebSocketConfig.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\Class.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\WrongBookService.java
 D:\examSystem\backen\src\main\java\com\examsystem\config\AppPropertiesConfig.java
+D:\examSystem\backen\src\main\java\com\examsystem\dto\AutoGenerateRequest.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\question\QuestionService.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ImageMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\teacher\TeacherQuestionController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\StemService.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\Option.java
+D:\examSystem\backen\src\main\java\com\examsystem\algorithm\GeneticAlgorithm.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\NotificationController.java
 D:\examSystem\backen\src\main\java\com\examsystem\mapper\ExamClassMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\ExamClass.java
