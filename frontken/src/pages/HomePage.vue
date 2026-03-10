@@ -12,6 +12,9 @@ import FeedbackManage from './teacher/FeedbackManage.vue'
 import ClassManage from './teacher/ClassManage.vue'
 import TeacherManage from './admin/TeacherManage.vue'
 import NotificationManage from './teacher/NotificationManage.vue'
+import ReviewManage from './teacher/ReviewManage.vue'
+import UserManage from './admin/UserManage.vue'
+import LogManage from './admin/LogManage.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 
 const auth = useAuthStore()
@@ -456,6 +459,10 @@ onMounted(() => {
               <Icon icon="iconoir:bell" />
               <span>通知管理</span>
             </div>
+            <div class="tab" :class="{ active: activeTab === 'review' }" @click="activeTab = 'review'">
+              <Icon icon="iconoir:edit" />
+              <span>讲评管理</span>
+            </div>
           </div>
         </div>
 
@@ -466,6 +473,7 @@ onMounted(() => {
           <ExamManage v-if="activeTab === 'exam'" />
           <FeedbackManage v-if="activeTab === 'feedback'" />
           <NotificationManage v-if="activeTab === 'notification'" />
+          <ReviewManage v-if="activeTab === 'review'" />
         </div>
       </main>
 
@@ -484,6 +492,14 @@ onMounted(() => {
               <Icon icon="iconoir:group" />
               <span>教师管理</span>
             </div>
+            <div class="tab" :class="{ active: adminTab === 'user' }" @click="adminTab = 'user'">
+              <Icon icon="iconoir:user" />
+              <span>用户管理</span>
+            </div>
+            <div class="tab" :class="{ active: adminTab === 'log' }" @click="adminTab = 'log'">
+              <Icon icon="iconoir:journal" />
+              <span>日志管理</span>
+            </div>
             <div class="tab" :class="{ active: adminTab === 'notification' }" @click="adminTab = 'notification'">
               <Icon icon="iconoir:bell" />
               <span>通知管理</span>
@@ -493,6 +509,8 @@ onMounted(() => {
 
         <div class="tab-content fade-in" style="animation-delay: 0.3s">
           <TeacherManage v-if="adminTab === 'teacher'" />
+          <UserManage v-if="adminTab === 'user'" />
+          <LogManage v-if="adminTab === 'log'" />
           <NotificationManage v-if="adminTab === 'notification'" />
         </div>
       </main>

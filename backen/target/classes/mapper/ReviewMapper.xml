@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.examsystem.mapper.ReviewMapper">
+    <insert id="insert" parameterType="com.examsystem.entity.Review">
+        INSERT INTO review (exam_id, teacher_id, title, content, status, created_at, updated_at)
+        VALUES (#{examId}, #{teacherId}, #{title}, #{content}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.examsystem.entity.Review">
+        UPDATE review SET
+            title = #{title},
+            content = #{content},
+            status = #{status},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="findById" parameterType="java.lang.Long" resultType="com.examsystem.entity.Review">
+        SELECT * FROM review WHERE id = #{id}
+    </select>
+
+    <select id="findByExamId" parameterType="java.lang.Long" resultType="com.examsystem.entity.Review">
+        SELECT * FROM review WHERE exam_id = #{examId}
+    </select>
+
+    <select id="findByTeacherId" parameterType="java.lang.Long" resultType="com.examsystem.entity.Review">
+        SELECT * FROM review WHERE teacher_id = #{teacherId} ORDER BY created_at DESC
+    </select>
+
+    <select id="findAll" resultType="com.examsystem.entity.Review">
+        SELECT * FROM review ORDER BY created_at DESC
+    </select>
+</mapper>

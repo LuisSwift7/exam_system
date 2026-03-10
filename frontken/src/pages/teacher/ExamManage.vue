@@ -366,7 +366,10 @@ onMounted(() => {
         
         <el-tab-pane label="自动组卷" name="auto">
           <div class="auto-compose-box">
-            <GeneticAutoCompose :exam-id="currentExamId" @success="composeVisible = false" />
+            <GeneticAutoCompose v-if="currentExamId" :exam-id="currentExamId" @success="composeVisible = false" />
+            <div v-else class="empty-state">
+              请先保存试卷，获取试卷ID
+            </div>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -390,7 +393,7 @@ onMounted(() => {
         <div class="p-list">
           <div v-for="(q, idx) in previewData.questions" :key="q.id" class="p-item">
             <div class="p-item-head">
-              <span class="idx">{{ idx + 1 }}.</span>
+              <span class="idx">{{ Number(idx) + 1 }}.</span>
               <el-tag size="small" effect="plain">{{ q.type === 2 ? '多选' : '单选' }}</el-tag>
               <el-tag size="small" type="warning" effect="plain">{{ q.score }}分</el-tag>
               <span class="p-q-diff">难度: {{ q.difficulty }}</span>

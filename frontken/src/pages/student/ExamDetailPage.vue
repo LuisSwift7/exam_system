@@ -11,6 +11,8 @@ const examId = route.params.id
 
 const loading = ref(false)
 const exam = ref<any>(null)
+const review = ref<any>(null)
+const reviewLoading = ref(false)
 
 async function fetchDetail() {
   loading.value = true
@@ -24,6 +26,18 @@ async function fetchDetail() {
   }
 }
 
+async function fetchReview() {
+  reviewLoading.value = true
+  try {
+    const res = await http.get(`/api/student/reviews/exam/${examId}`)
+    review.value = res.data.data
+  } catch (e: any) {
+    // 没有讲评时不显示错误
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
 async function startExam() {
   try {
     await http.post(`/api/student/exam-taking/${examId}/start`)
@@ -33,8 +47,9 @@ async function startExam() {
   }
 }
 
-onMounted(() => {
-  fetchDetail()
+onMounted(async () => {
+  await fetchDetail()
+  await fetchReview()
 })
 </script>
 
@@ -75,6 +90,16 @@ onMounted(() => {
               <li>考试期间禁止切换页面，否则可能被记录异常。</li>
               <li>请在规定时间内完成作答，倒计时结束后将自动提交。</li>
             </ul>
+          </div>
+          
+          <!-- 讲评部分 -->
+          <div class="section" v-if="review" v-loading="reviewLoading">
+            <h3>考试讲评</h3>
+            <div class="review-card">
+              <h4 class="review-title">{{ review.title }}</h4>
+              <div class="review-content">{{ review.content }}</div>
+              <div class="review-time">发布时间：{{ new Date(review.createdAt).toLocaleString() }}</div>
+            </div>
           </div>
         </div>
 
@@ -180,6 +205,35 @@ onMounted(() => {
   font-size: 14px;
   color: #555;
   line-height: 1.8;
+}
+
+/* 讲评样式 */
+.review-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.review-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1e23;
+  margin: 0 0 12px;
+}
+
+.review-content {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+
+.review-time {
+  font-size: 12px;
+  color: #999;
+  text-align: right;
 }
 
 .start-btn {

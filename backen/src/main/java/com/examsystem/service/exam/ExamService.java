@@ -26,6 +26,7 @@ import com.examsystem.algorithm.GeneticAlgorithm;
 import com.examsystem.dto.AutoGenerateRequest;
 import java.util.HashMap;
 import com.examsystem.service.NotificationService;
+import java.util.Set;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -46,6 +47,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Base64;
+import java.util.HashSet;
 
 @Service
 @RequiredArgsConstructor
@@ -449,6 +451,24 @@ public class ExamService {
         }
         
         return result;
+    }
+
+    public List<Long> getExamStudentIds(Long examId) {
+        // 获取考试关联的班级ID列表
+        List<Long> classIds = getExamClassIds(examId);
+        Set<Long> studentIds = new HashSet<>();
+        
+        // 遍历每个班级，获取学生ID
+        for (Long classId : classIds) {
+            List<ClassStudent> classStudents = classStudentMapper.selectList(
+                new LambdaQueryWrapper<ClassStudent>().eq(ClassStudent::getClassId, classId)
+            );
+            for (ClassStudent cs : classStudents) {
+                studentIds.add(cs.getStudentId());
+            }
+        }
+        
+        return new ArrayList<>(studentIds);
     }
 
     public ExamPreviewVo getExamPreview(Long id) {
