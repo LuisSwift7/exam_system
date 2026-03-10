@@ -14,4 +14,8 @@ public interface NotificationService {
     void createClassApplyNotification(Long classId, Long studentId, Long teacherId);
     void createExamGradedNotification(Long examId, Long studentId);
     void createClassApprovedNotification(Long classId, Long studentId);
+    void createBulkNotification(List<Long> userIds, String type, String title, String content, Long relatedId);
+    void deleteNotification(Long id);
+    List<Notification> getAllNotifications();
+    List<Notification> getAllNotifications(int page, int size);
 }

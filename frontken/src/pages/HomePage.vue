@@ -11,6 +11,7 @@ import ExamManage from './teacher/ExamManage.vue'
 import FeedbackManage from './teacher/FeedbackManage.vue'
 import ClassManage from './teacher/ClassManage.vue'
 import TeacherManage from './admin/TeacherManage.vue'
+import NotificationManage from './teacher/NotificationManage.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 
 const auth = useAuthStore()
@@ -451,6 +452,10 @@ onMounted(() => {
               <Icon icon="iconoir:chat-bubble" />
               <span>反馈管理</span>
             </div>
+            <div class="tab" :class="{ active: activeTab === 'notification' }" @click="activeTab = 'notification'">
+              <Icon icon="iconoir:bell" />
+              <span>通知管理</span>
+            </div>
           </div>
         </div>
 
@@ -460,6 +465,7 @@ onMounted(() => {
           <QuestionManage v-if="activeTab === 'question'" />
           <ExamManage v-if="activeTab === 'exam'" />
           <FeedbackManage v-if="activeTab === 'feedback'" />
+          <NotificationManage v-if="activeTab === 'notification'" />
         </div>
       </main>
 
@@ -478,11 +484,16 @@ onMounted(() => {
               <Icon icon="iconoir:group" />
               <span>教师管理</span>
             </div>
+            <div class="tab" :class="{ active: adminTab === 'notification' }" @click="adminTab = 'notification'">
+              <Icon icon="iconoir:bell" />
+              <span>通知管理</span>
+            </div>
           </div>
         </div>
 
         <div class="tab-content fade-in" style="animation-delay: 0.3s">
           <TeacherManage v-if="adminTab === 'teacher'" />
+          <NotificationManage v-if="adminTab === 'notification'" />
         </div>
       </main>
     </div>

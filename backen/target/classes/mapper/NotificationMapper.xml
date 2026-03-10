@@ -25,4 +25,20 @@
     <select id="countUnreadByUserId" parameterType="java.lang.Long" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM notification WHERE user_id = #{userId} AND is_read = 0
     </select>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM notification WHERE id = #{id}
+    </delete>
+
+    <select id="findAll" resultType="com.examsystem.entity.Notification">
+        SELECT * FROM notification ORDER BY created_at DESC
+    </select>
+
+    <select id="findAllWithPagination" resultType="com.examsystem.entity.Notification">
+        SELECT * FROM notification ORDER BY created_at DESC LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM notification
+    </select>
 </mapper>

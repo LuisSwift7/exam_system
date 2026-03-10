@@ -5,7 +5,9 @@ import com.examsystem.mapper.NotificationMapper;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -99,5 +101,37 @@ public class NotificationServiceImpl implements NotificationService {
                 "您的班级申请已批准",
                 classId
         );
+    }
+
+    @Override
+    public void createBulkNotification(List<Long> userIds, String type, String title, String content, Long relatedId) {
+        if (userIds == null || userIds.isEmpty()) {
+            return;
+        }
+        
+        // 去重，确保每个学生只收到一条通知
+        Set<Long> uniqueUserIds = new HashSet<>(userIds);
+        
+        for (Long userId : uniqueUserIds) {
+            if (userId != null) {
+                createNotification(userId, type, title, content, relatedId);
+            }
+        }
+    }
+
+    @Override
+    public void deleteNotification(Long id) {
+        notificationMapper.deleteById(id);
+    }
+
+    @Override
+    public List<Notification> getAllNotifications() {
+        return notificationMapper.findAll();
+    }
+
+    @Override
+    public List<Notification> getAllNotifications(int page, int size) {
+        int offset = (page - 1) * size;
+        return notificationMapper.findAllWithPagination(offset, size);
     }
 }
