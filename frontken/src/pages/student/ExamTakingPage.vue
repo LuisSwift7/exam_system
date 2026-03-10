@@ -152,40 +152,20 @@ function captureImage() {
   
   ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
   
-  // 保存到本地
+  // 直接通过HTTP POST发送图片
   canvas.toBlob((blob) => {
     if (blob) {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `capture_${Date.now()}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const formData = new FormData()
+      formData.append('image', blob, `capture_${Date.now()}.png`)
+      formData.append('recordId', recordId.value?.toString() || '')
       
-      // 转换为Base64通过WebSocket发送
-      const reader = new FileReader()
-      reader.onload = function(e) {
-        const base64Image = e.target?.result as string
-        if (ws.value && ws.value.readyState === 1) {
-          ws.value.send(JSON.stringify({
-            type: 'capture',
-            recordId: recordId.value,
-            image: base64Image,
-            timestamp: Date.now()
-          }))
-        } else {
-          // 如果WebSocket未连接，回退到HTTP POST
-          const formData = new FormData()
-          formData.append('image', blob, `capture_${Date.now()}.png`)
-          formData.append('recordId', recordId.value?.toString() || '')
-          
-          http.post('/api/student/exam-taking/capture', formData)
-            .catch(err => console.error('Capture upload failed:', err))
-        }
-      }
-      reader.readAsDataURL(blob)
+      http.post('/api/student/exam-taking/capture', formData)
+        .then(() => {
+          console.log('Capture uploaded successfully')
+        })
+        .catch(err => {
+          console.error('Capture upload failed:', err)
+        })
     }
   })
 }
@@ -642,9 +622,9 @@ onUnmounted(() => {
               <span class="dot marked small"></span> 标记
             </div>
             <div class="button-group">
-              <el-button type="info" class="save-btn" @click="manualSave">临时保存</el-button>
-              <el-button type="primary" class="submit-btn" @click="submitExam(false)">交卷</el-button>
-            </div>
+            <el-button type="info" class="save-btn" @click="manualSave">临时保存</el-button>
+            <el-button type="primary" class="submit-btn" @click="submitExam(false)">交卷</el-button>
+          </div>
           </div>
         </div>
 
@@ -757,6 +737,8 @@ onUnmounted(() => {
         </span>
       </template>
     </el-dialog>
+    
+
   </div>
 </template>
 
@@ -1194,5 +1176,19 @@ onUnmounted(() => {
   padding-top: 40px;
   display: flex;
   justify-content: space-between;
+}
+
+/* Button Group Styles */
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.save-btn,
+.submit-btn {
+  flex: 1;
+  box-sizing: border-box;
+  margin: 0;
 }
 </style>

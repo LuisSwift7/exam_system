@@ -3,6 +3,7 @@ package com.examsystem.controller.teacher;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.examsystem.common.ApiResponse;
 import com.examsystem.entity.Exam;
+import com.examsystem.entity.Image;
 import com.examsystem.service.exam.ExamService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -98,6 +99,11 @@ public class TeacherExamController {
     public ApiResponse<Void> withdrawSubmission(@PathVariable Long id, @PathVariable Long recordId) {
         examService.withdrawSubmission(recordId);
         return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/{id}/submissions/{recordId}/captures")
+    public ApiResponse<List<Map<String, Object>>> getStudentCaptures(@PathVariable Long id, @PathVariable Long recordId) {
+        return ApiResponse.ok(examService.getStudentCaptures(recordId));
     }
 
     @Data

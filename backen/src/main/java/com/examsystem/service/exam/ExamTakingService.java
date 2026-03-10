@@ -329,6 +329,13 @@ public class ExamTakingService {
         imageMapper.insert(img);
     }
 
+    public List<Image> getCaptures(Long recordId) {
+        // 查询该考试记录的所有抓拍图片，按创建时间排序
+        return imageMapper.selectList(new LambdaQueryWrapper<Image>()
+                .eq(Image::getExamRecordId, recordId)
+                .orderByAsc(Image::getCreatedTime));
+    }
+
     private void saveWrongQuestion(Long studentId, Long questionId, Long examId) {
         WrongBook wb = wrongBookMapper.selectOne(new LambdaQueryWrapper<WrongBook>()
                 .eq(WrongBook::getStudentId, studentId)

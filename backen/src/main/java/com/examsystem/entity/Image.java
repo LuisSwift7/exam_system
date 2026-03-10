@@ -13,12 +13,11 @@ public class Image {
     @TableId(type = IdType.AUTO)
     private Long id;
     
-    private String fileName;
-    private String filePath;
-    private String contentType;
-    private Long fileSize;
-    private String originalName;
+    private String name;
+    private String path;
+    private String type;
+    private Long size;
+    private Long examRecordId;
     
     private LocalDateTime createdTime;
-    private Long createBy;
 }

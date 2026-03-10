@@ -1,5 +1,10 @@
 server:
   port: 8080
+  tomcat:
+    max-http-form-post-size: 20MB
+  websocket:
+    max-text-message-size: 20MB
+    max-binary-message-size: 20MB
 
 spring:
   datasource:

@@ -39,6 +39,11 @@ const submissions = ref<any[]>([])
 const submissionsLoading = ref(false)
 const currentSubmissionExamId = ref<number | null>(null)
 
+// Captures
+const capturesVisible = ref(false)
+const captures = ref<any[]>([])
+const capturesLoading = ref(false)
+
 const categoryOptions = [
   '言语理解',
   '数量关系',
@@ -175,6 +180,19 @@ async function handleWithdraw(recordId: number) {
     if (e !== 'cancel') {
       ElMessage.error(e?.message || '撤回失败')
     }
+  }
+}
+
+async function handleViewCaptures(recordId: number) {
+  try {
+    capturesLoading.value = true
+    const res = await http.get(`/api/teacher/exams/0/submissions/${recordId}/captures`)
+    captures.value = res.data.data
+    capturesVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '获取抓拍记录失败')
+  } finally {
+    capturesLoading.value = false
   }
 }
 
@@ -519,8 +537,9 @@ const totalAutoScore = computed(() => {
               {{ row.submitTime?.replace('T', ' ').slice(0, 16) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="handleViewCaptures(row.recordId)">查看抓拍</el-button>
               <el-button link type="danger" size="small" @click="handleWithdraw(row.recordId)">撤回</el-button>
             </template>
           </el-table-column>
@@ -528,6 +547,35 @@ const totalAutoScore = computed(() => {
         <el-empty v-if="!submissionsLoading && submissions.length === 0" description="暂无提交记录" />
       </div>
     </el-drawer>
+    
+    <!-- Captures Dialog -->
+    <el-dialog
+      v-model="capturesVisible"
+      title="学生抓拍记录"
+      width="800px"
+      append-to-body
+    >
+      <div v-if="captures.length === 0" class="no-captures">
+        <el-empty description="暂无抓拍记录" />
+      </div>
+      <div v-else class="captures-list" v-loading="capturesLoading">
+        <div v-for="(capture, index) in captures" :key="capture.id" class="capture-item">
+          <div class="capture-info">
+            <span class="capture-index">#{{ index + 1 }}</span>
+            <span class="capture-time">{{ new Date(capture.createdTime).toLocaleString() }}</span>
+            <span class="capture-size">{{ (capture.size / 1024).toFixed(2) }} KB</span>
+          </div>
+          <div class="capture-image">
+            <img :src="capture.base64Image || ('http://localhost:8080' + capture.path)" :alt="capture.name" />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="capturesVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -681,5 +729,51 @@ const totalAutoScore = computed(() => {
 
 .label {
   margin-right: 8px;
+}
+
+/* Captures Dialog Styles */
+.no-captures {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.captures-list {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.capture-item {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.capture-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.capture-index {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.capture-image {
+  text-align: center;
+}
+
+.capture-image img {
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 </style>

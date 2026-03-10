@@ -70,6 +70,12 @@ public class ExamTakingController {
         return ApiResponse.ok(null);
     }
 
+    @GetMapping("/capture/{recordId}")
+    public ApiResponse<List<Image>> getCaptures(@PathVariable Long recordId) {
+        // 获取该考试记录的所有抓拍图片
+        return ApiResponse.ok(takingService.getCaptures(recordId));
+    }
+
     @Data
     public static class AnswerRequest {
         private Long recordId;

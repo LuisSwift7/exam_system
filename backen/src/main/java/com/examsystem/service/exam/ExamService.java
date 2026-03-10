@@ -12,6 +12,7 @@ import com.examsystem.entity.ClassStudent;
 import com.examsystem.entity.ExamRecord;
 import com.examsystem.entity.ExamAnswer;
 import com.examsystem.entity.SysUser;
+import com.examsystem.entity.Image;
 import com.examsystem.mapper.ExamClassMapper;
 import com.examsystem.mapper.ExamMapper;
 import com.examsystem.mapper.ExamQuestionRelationMapper;
@@ -20,6 +21,7 @@ import com.examsystem.mapper.ClassStudentMapper;
 import com.examsystem.mapper.ExamRecordMapper;
 import com.examsystem.mapper.ExamAnswerMapper;
 import com.examsystem.mapper.SysUserMapper;
+import com.examsystem.mapper.ImageMapper;
 import java.util.HashMap;
 import com.examsystem.service.NotificationService;
 import lombok.Data;
@@ -38,6 +40,10 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +56,7 @@ public class ExamService {
     private final ExamRecordMapper examRecordMapper;
     private final ExamAnswerMapper examAnswerMapper;
     private final SysUserMapper sysUserMapper;
+    private final ImageMapper imageMapper;
     private final com.examsystem.service.classroom.ClassService classService;
     private final NotificationService notificationService;
 
@@ -341,6 +348,52 @@ public class ExamService {
             answer.setIsCorrect(null);
             examAnswerMapper.updateById(answer);
         }
+    }
+
+    public List<Map<String, Object>> getStudentCaptures(Long recordId) {
+        // 检查记录是否存在
+        ExamRecord record = examRecordMapper.selectById(recordId);
+        if (record == null) {
+            throw new BizException(400, "考试记录不存在");
+        }
+        
+        // 查询该考试记录的所有抓拍图片，按创建时间排序
+        List<Image> images = imageMapper.selectList(new LambdaQueryWrapper<Image>()
+                .eq(Image::getExamRecordId, recordId)
+                .orderByAsc(Image::getCreatedTime));
+        
+        // 转换为包含base64编码的图片数据
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Image image : images) {
+            Map<String, Object> imageData = new HashMap<>();
+            imageData.put("id", image.getId());
+            imageData.put("name", image.getName());
+            imageData.put("path", image.getPath());
+            imageData.put("type", image.getType());
+            imageData.put("size", image.getSize());
+            imageData.put("examRecordId", image.getExamRecordId());
+            imageData.put("createdTime", image.getCreatedTime());
+            
+            // 读取图片文件并转换为base64编码
+            try {
+                String filePath = "D:/examSystem" + image.getPath();
+                File file = new File(filePath);
+                if (file.exists()) {
+                    byte[] fileContent = Files.readAllBytes(file.toPath());
+                    String base64Image = "data:" + image.getType() + ";base64," + Base64.getEncoder().encodeToString(fileContent);
+                    imageData.put("base64Image", base64Image);
+                } else {
+                    imageData.put("base64Image", null);
+                }
+            } catch (Exception e) {
+                imageData.put("base64Image", null);
+                e.printStackTrace();
+            }
+            
+            result.add(imageData);
+        }
+        
+        return result;
     }
 
     public ExamPreviewVo getExamPreview(Long id) {

@@ -68,35 +68,47 @@ public class ExamWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        // 从路径中获取recordId
-        Long recordId = extractRecordId(session);
-        
-        System.out.println("Received message from recordId " + recordId + ": " + message.getPayload());
-        
-        // 解析消息
-        Map<?, ?> data = objectMapper.readValue(message.getPayload(), Map.class);
-        String type = (String) data.get("type");
-        
-        // 处理不同类型的消息
-        switch (type) {
-            case "heartbeat":
-                // 响应心跳
-                System.out.println("Heartbeat received from recordId " + recordId);
-                sendMessage(recordId, Map.of("type", "heartbeatResponse"));
-                break;
-            case "test":
-                // 处理测试消息
-                System.out.println("Test message received from recordId " + recordId);
-                sendMessage(recordId, Map.of("type", "testResponse", "message", "Hello from server"));
-                break;
-            case "capture":
-                // 处理抓拍图片
-                System.out.println("Capture received from recordId " + recordId);
-                handleCapture(recordId, data);
-                break;
-            default:
-                System.out.println("Unknown message type: " + type);
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        try {
+            // 从路径中获取recordId
+            Long recordId = extractRecordId(session);
+            
+            System.out.println("Received message from recordId " + recordId + ": " + message.getPayload());
+            System.out.println("Message size: " + message.getPayload().length() + " bytes");
+            
+            // 解析消息
+            Map<?, ?> data = objectMapper.readValue(message.getPayload(), Map.class);
+            System.out.println("websocket data: " + data);
+            String type = (String) data.get("type");
+            
+            if (type == null) {
+                System.err.println("Message type is null");
+                return;
+            }
+            
+            // 处理不同类型的消息
+            switch (type) {
+                case "heartbeat":
+                    // 响应心跳
+                    System.out.println("Heartbeat received from recordId " + recordId);
+                    sendMessage(recordId, Map.of("type", "heartbeatResponse"));
+                    break;
+                case "test":
+                    // 处理测试消息
+                    System.out.println("Test message received from recordId " + recordId);
+                    sendMessage(recordId, Map.of("type", "testResponse", "message", "Hello from server"));
+                    break;
+                case "capture":
+                    // 处理抓拍图片
+                    System.out.println("Capture received from recordId " + recordId);
+                    handleCapture(recordId, data);
+                    break;
+                default:
+                    System.out.println("Unknown message type: " + type);
+            }
+        } catch (Exception e) {
+            System.err.println("Error handling text message: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
