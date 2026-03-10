@@ -399,23 +399,12 @@ onMounted(() => {
               <p class="overview-change">+{{ dashboardOverview.newExamsThisWeek }} 本周</p>
             </div>
           </div>
-          <div class="overview-card">
-            <div class="overview-icon bg-orange">
-              <Icon icon="iconoir:chat-bubble" />
-            </div>
-            <div class="overview-content">
-              <h3>未回复反馈</h3>
-              <p class="overview-value">{{ dashboardOverview.feedbackCount }}</p>
-              <p class="overview-change">-{{ dashboardOverview.resolvedFeedbacksThisWeek }} 本周</p>
-            </div>
-          </div>
         </div>
 
         <!-- 最近活动 -->
         <div class="recent-activities fade-in" style="animation-delay: 0.3s">
           <div class="activity-header">
             <h2>最近活动</h2>
-            <button class="view-all-btn" @click="viewAllActivities">查看全部</button>
           </div>
           <div class="activity-list">
             <div v-if="recentActivities.length === 0" class="empty-activities">

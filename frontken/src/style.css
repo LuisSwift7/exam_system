@@ -1,19 +1,353 @@
+/* Reset and Global Theme */
 :root {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.88);
-  background-color: #0d1014;
-  text-rendering: geometricPrecision;
-  -webkit-font-smoothing: antialiased;
+
+  color-scheme: light; /* Force light theme */
+  
+  --el-color-primary: #10d4a6;
+  --el-color-primary-light-3: #40dfbb;
+  --el-color-primary-light-5: #6fe7cc;
+  --el-color-primary-light-7: #9ef0dd;
+  --el-color-primary-light-8: #b6f4e6;
+  --el-color-primary-light-9: #cef8ee;
+  --el-color-primary-dark-2: #0da985;
+  
+  --el-color-success: #67c23a;
+  --el-color-warning: #e6a23c;
+  --el-color-danger: #f56c6c;
+  --el-color-error: #f56c6c;
+  --el-color-info: #909399;
+
+  --bg-color: #f6f8fa;
+  --text-color: #1a1e23;
+  --card-bg: #ffffff;
+  
+  --border-radius-base: 12px;
+  --border-radius-large: 16px;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
   min-height: 100vh;
+}
+
+/* --- Element Plus Dialog Overrides --- */
+.el-dialog {
+  border-radius: var(--border-radius-large) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Dialog Header Decoration */
+.el-dialog__header {
+  padding: 24px 24px 16px !important;
+  margin-right: 0 !important;
+  position: relative;
+  z-index: 1;
+}
+
+.el-dialog__header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--el-color-primary), #ffa116);
+  z-index: 2;
+}
+
+.el-dialog__title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--text-color) !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.el-dialog__headerbtn {
+  top: 20px !important;
+  right: 20px !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  transition: all 0.2s !important;
+}
+
+.el-dialog__headerbtn:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.el-dialog__headerbtn .el-dialog__close {
+  color: #909399 !important;
+  font-size: 16px !important;
+}
+
+.el-dialog__headerbtn:hover .el-dialog__close {
+  color: var(--el-color-primary) !important;
+}
+
+/* Dialog Body */
+.el-dialog__body {
+  padding: 0 24px 24px !important;
+  color: #606266 !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+/* Dialog Footer */
+.el-dialog__footer {
+  padding: 16px 24px 24px !important;
+  border-top: 1px dashed rgba(0, 0, 0, 0.06);
+  background: rgba(249, 250, 251, 0.5);
+}
+
+/* --- Element Plus Pagination Overrides --- */
+.el-pagination {
+  justify-content: center !important;
+  margin-top: 24px !important;
+  padding: 12px 0 !important;
+  font-weight: 500 !important;
+}
+
+.el-pagination.is-background .el-pager li:not(.is-disabled).is-active {
+  background-color: var(--el-color-primary) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(16, 212, 166, 0.3) !important;
+  font-weight: 700 !important;
+  transform: scale(1.05);
+}
+
+.el-pagination.is-background .el-pager li {
+  border-radius: 8px !important;
+  background-color: #fff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  margin: 0 4px !important;
+  color: #606266 !important;
+  transition: all 0.2s !important;
+}
+
+.el-pagination.is-background .el-pager li:hover {
+  color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary) !important;
+  background-color: rgba(16, 212, 166, 0.05) !important;
+}
+
+.el-pagination.is-background .btn-prev,
+.el-pagination.is-background .btn-next {
+  border-radius: 8px !important;
+  background-color: #fff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  color: #606266 !important;
+  transition: all 0.2s !important;
+}
+
+.el-pagination.is-background .btn-prev:hover,
+.el-pagination.is-background .btn-next:hover {
+  color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary) !important;
+  background-color: rgba(16, 212, 166, 0.05) !important;
+}
+
+/* --- Element Plus Input Overrides --- */
+.el-input__wrapper {
+  border-radius: var(--border-radius-base) !important;
+  box-shadow: 0 0 0 1px #dcdfe6 inset !important;
+  padding: 4px 12px !important;
+  transition: all 0.2s !important;
+  background-color: #fff !important;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #c0c4cc inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 0 0 3px rgba(16, 212, 166, 0.1) !important;
+}
+
+.el-textarea__inner {
+  border-radius: var(--border-radius-base) !important;
+  padding: 12px !important;
+  box-shadow: 0 0 0 1px #dcdfe6 inset !important;
+  transition: all 0.2s !important;
+}
+
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 0 0 3px rgba(16, 212, 166, 0.1) !important;
+}
+
+/* --- Element Plus Button Overrides --- */
+.el-button {
+  border-radius: var(--border-radius-base) !important;
+  font-weight: 500 !important;
+  padding: 10px 20px !important;
+  height: auto !important;
+  transition: all 0.2s !important;
+}
+
+/* Primary Button (Solid) */
+.el-button--primary:not(.is-link):not(.is-text) {
+  background: linear-gradient(135deg, var(--el-color-primary), #0cbdb9) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(16, 212, 166, 0.25) !important;
+  color: #fff !important;
+}
+
+.el-button--primary:not(.is-link):not(.is-text):hover {
+  background: linear-gradient(135deg, #12eecba, #0edbd6) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(16, 212, 166, 0.35) !important;
+}
+
+.el-button--primary:not(.is-link):not(.is-text):active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 8px rgba(16, 212, 166, 0.2) !important;
+}
+
+/* Link Button (Reset) */
+.el-button.is-link {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 4px 8px !important;
+  height: auto !important;
+}
+
+.el-button.is-link:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  border-radius: 6px !important;
+}
+
+/* Default Button */
+.el-button--default:not(.is-text):not(.is-link) {
+  border: 1px solid #dcdfe6 !important;
+  color: #606266 !important;
+  background: #fff !important;
+}
+
+.el-button--default:hover {
+  color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary-light-7) !important;
+  background-color: var(--el-color-primary-light-9) !important;
+}
+
+/* --- Element Plus Select Overrides --- */
+.el-select .el-input__wrapper {
+  box-shadow: 0 0 0 1px #dcdfe6 inset !important;
+}
+
+.el-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 0 0 3px rgba(16, 212, 166, 0.1) !important;
+}
+
+.el-select-dropdown__item.selected {
+  color: var(--el-color-primary) !important;
+  font-weight: 600 !important;
+}
+
+/* --- Element Plus Message Box Overrides (Alert/Confirm) --- */
+.el-message-box {
+  border-radius: var(--border-radius-large) !important;
+  border: none !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1) !important;
+  padding-bottom: 20px !important;
+}
+
+.el-message-box__header {
+  padding: 20px 24px 10px !important;
+}
+
+.el-message-box__title {
+  font-weight: 700 !important;
+  font-size: 18px !important;
+}
+
+.el-message-box__content {
+  padding: 10px 24px !important;
+  color: #606266 !important;
+  font-size: 14px !important;
+}
+
+.el-message-box__btns {
+  padding: 10px 24px 0 !important;
+}
+
+/* --- Element Plus Tag Overrides --- */
+.el-tag {
+  border-radius: 6px !important;
+  border: none !important;
+}
+
+.el-tag--success {
+  background-color: rgba(103, 194, 58, 0.1) !important;
+  color: #67c23a !important;
+}
+
+.el-tag--warning {
+  background-color: rgba(230, 162, 60, 0.1) !important;
+  color: #e6a23c !important;
+}
+
+.el-tag--danger {
+  background-color: rgba(245, 108, 108, 0.1) !important;
+  color: #f56c6c !important;
+}
+
+.el-tag--primary {
+  background-color: rgba(64, 158, 255, 0.1) !important;
+  color: #409eff !important;
+}
+
+.el-tag--info {
+  background-color: rgba(144, 147, 153, 0.1) !important;
+  color: #909399 !important;
+}
+
+/* --- Element Plus Table Overrides --- */
+.el-table {
+  --el-table-header-bg-color: #f9fafb !important;
+  --el-table-row-hover-bg-color: #f0fdf9 !important;
+  border-radius: var(--border-radius-base) !important;
+  overflow: hidden !important;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600 !important;
+  color: #1a1e23 !important;
+  background-color: #f9fafb !important;
+}
+
+/* --- Global Scrollbar --- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

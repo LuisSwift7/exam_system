@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { http } from '../../api/http'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import GeneticAutoCompose from '../../components/GeneticAutoCompose.vue'
 
@@ -10,6 +10,7 @@ const list = ref<any[]>([])
 const dialogVisible = ref(false)
 const composeVisible = ref(false)
 const currentExamId = ref<number | null>(null)
+const formRef = ref<FormInstance>()
 const form = ref<any>({
   id: undefined,
   title: '',
@@ -19,6 +20,15 @@ const form = ref<any>({
   duration: 60,
   classIds: []
 })
+
+const rules = {
+  title: [{ required: true, message: '请输入试卷名称', trigger: 'blur' }],
+  description: [{ required: true, message: '请输入试卷说明', trigger: 'blur' }],
+  startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
+  endTime: [{ required: true, message: '请选择结束时间', trigger: 'change' }],
+  duration: [{ required: true, message: '请输入考试时长', trigger: 'blur' }],
+  classIds: [{ required: true, message: '请选择发布班级', trigger: 'change' }]
+}
 
 // Classes
 const classes = ref<any[]>([])
@@ -182,33 +192,38 @@ async function handleViewCaptures(recordId: number) {
 }
 
 async function submit() {
-  try {
-    // Format dates
-    const payload = { ...form.value }
-    if (payload.startTime) payload.startTime = payload.startTime.replace(' ', 'T')
-    if (payload.endTime) payload.endTime = payload.endTime.replace(' ', 'T')
-    
-    // Remove classIds from payload for create/update
-    const { classIds, ...examData } = payload
+  if (!formRef.value) return
+  await formRef.value.validate(async (valid, fields) => {
+    if (valid) {
+      try {
+        // Format dates
+        const payload = { ...form.value }
+        if (payload.startTime) payload.startTime = payload.startTime.replace(' ', 'T')
+        if (payload.endTime) payload.endTime = payload.endTime.replace(' ', 'T')
+        
+        // Remove classIds from payload for create/update
+        const { classIds, ...examData } = payload
 
-    if (form.value.id) {
-      await http.put(`/api/teacher/exams/${form.value.id}`, examData)
-      await http.post(`/api/teacher/exams/${form.value.id}/classes`, { classIds })
-    } else {
-      await http.post('/api/teacher/exams', examData)
-      // Get the created exam ID
-      const exams = await http.get('/api/teacher/exams?size=1')
-      const examId = exams.data.data.list[0]?.id
-      if (examId) {
-        await http.post(`/api/teacher/exams/${examId}/classes`, { classIds })
+        if (form.value.id) {
+          await http.put(`/api/teacher/exams/${form.value.id}`, examData)
+          await http.post(`/api/teacher/exams/${form.value.id}/classes`, { classIds })
+        } else {
+          await http.post('/api/teacher/exams', examData)
+          // Get the created exam ID
+          const exams = await http.get('/api/teacher/exams?size=1')
+          const examId = exams.data.data.list[0]?.id
+          if (examId) {
+            await http.post(`/api/teacher/exams/${examId}/classes`, { classIds })
+          }
+        }
+        ElMessage.success('操作成功')
+        dialogVisible.value = false
+        fetchList()
+      } catch (e: any) {
+        ElMessage.error(e?.message || '操作失败')
       }
     }
-    ElMessage.success('操作成功')
-    dialogVisible.value = false
-    fetchList()
-  } catch (e: any) {
-    ElMessage.error(e?.message || '操作失败')
-  }
+  })
 }
 
 async function openCompose(examId: number) {
@@ -262,10 +277,16 @@ onMounted(() => {
 
     <el-table :data="list" v-loading="loading" style="width: 100%">
       <el-table-column prop="title" label="试卷名称" show-overflow-tooltip />
+      <el-table-column prop="description" label="说明" show-overflow-tooltip />
       <el-table-column prop="duration" label="时长(分)" width="100" />
       <el-table-column prop="startTime" label="开始时间" width="180">
         <template #default="{ row }">
           {{ row.startTime?.replace('T', ' ').slice(0, 16) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="endTime" label="结束时间" width="180">
+        <template #default="{ row }">
+          {{ row.endTime?.replace('T', ' ').slice(0, 16) }}
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
@@ -273,22 +294,24 @@ onMounted(() => {
           <el-tag :type="getStatusTag(row.status).type as any">{{ getStatusTag(row.status).text }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="320" fixed="right">
+      <el-table-column label="操作" width="380" fixed="right">
         <template #default="{ row }">
-          <el-button 
-            link 
-            type="success" 
-            size="small" 
-            v-if="row.status === 0"
-            @click="handlePublish(row)"
-          >
-            发布
-          </el-button>
-          <el-button link type="info" size="small" @click="handlePreview(row)">预览</el-button>
-          <el-button link type="primary" size="small" @click="openCompose(row.id)">组卷</el-button>
-          <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button link type="warning" size="small" @click="handleSubmissions(row)">提交记录</el-button>
-          <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+          <div class="action-buttons">
+            <el-button 
+              link 
+              type="success" 
+              size="small" 
+              v-if="row.status === 0"
+              @click="handlePublish(row)"
+            >
+              发布
+            </el-button>
+            <el-button link type="info" size="small" @click="handlePreview(row)">预览</el-button>
+            <el-button link type="primary" size="small" @click="openCompose(row.id)">组卷</el-button>
+            <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="warning" size="small" @click="handleSubmissions(row)">提交记录</el-button>
+            <el-button link type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -300,23 +323,23 @@ onMounted(() => {
       width="600px"
       append-to-body
     >
-      <el-form :model="form" label-width="100px">
-        <el-form-item label="名称">
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+        <el-form-item label="名称" prop="title">
           <el-input v-model="form.title" />
         </el-form-item>
-        <el-form-item label="说明">
+        <el-form-item label="说明" prop="description">
           <el-input type="textarea" v-model="form.description" />
         </el-form-item>
-        <el-form-item label="开始时间">
+        <el-form-item label="开始时间" prop="startTime">
           <el-date-picker v-model="form.startTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" />
         </el-form-item>
-        <el-form-item label="结束时间">
+        <el-form-item label="结束时间" prop="endTime">
           <el-date-picker v-model="form.endTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" />
         </el-form-item>
-        <el-form-item label="时长(分)">
+        <el-form-item label="时长(分)" prop="duration">
           <el-input-number v-model="form.duration" :min="1" />
         </el-form-item>
-        <el-form-item label="发布班级">
+        <el-form-item label="发布班级" prop="classIds">
           <el-select 
             v-model="form.classIds" 
             multiple 
@@ -497,6 +520,14 @@ onMounted(() => {
   font-weight: 700;
   color: #1a1e23;
   margin: 0;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .manual-box {

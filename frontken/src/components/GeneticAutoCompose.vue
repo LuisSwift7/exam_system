@@ -19,7 +19,7 @@ const form = ref({
   questionCount: 20,
   typeConfigs: [
     { type: 1, count: 10, score: 2, name: '单选题' }, // 1: Single
-    { type: 2, count: 5, score: 4, name: '多选题' },  // 2: Multiple
+    { type: 2, count: 0, score: 4, name: '多选题' },  // 2: Multiple
   ],
   knowledgePointRequirements: [
      { category: '言语理解', count: 0 },

@@ -2,7 +2,7 @@
   <div class="panel">
     <div class="panel__head">
       <div class="panel__title">
-        <Icon icon="iconoir:users" class="title-icon" />
+        <Icon icon="iconoir:group" class="title-icon" />
         <h3>班级管理</h3>
       </div>
       <p class="panel__desc">创建和管理您的班级，添加学生并发布考试</p>
@@ -32,7 +32,7 @@
                       编辑班级
                     </el-dropdown-item>
                     <el-dropdown-item @click="openStudentManage(item)" divided>
-                      <Icon icon="iconoir:users" />
+                      <Icon icon="iconoir:group" />
                       管理学生
                     </el-dropdown-item>
                     <el-dropdown-item @click="deleteClass(item)" divided danger>
@@ -49,7 +49,7 @@
         <div class="card-body">
           <div class="class-info">
             <div class="info-item">
-              <Icon icon="iconoir:users" />
+              <Icon icon="iconoir:group" />
               <span>学生人数: {{ item.studentCount || 0 }}</span>
             </div>
             <div class="info-item">
@@ -60,11 +60,11 @@
           
           <div class="card-actions">
             <el-button type="primary" size="small" @click="openStudentManage(item)">
-              <Icon icon="iconoir:users" />
+              <Icon icon="iconoir:group" />
               管理学生
             </el-button>
             <el-button type="info" size="small" @click="openApplications(item)">
-              <Icon icon="iconoir:message-request" />
+              <Icon icon="iconoir:chat-bubble" />
               申请管理
               <el-badge v-if="item.applicationCount" :value="item.applicationCount" class="application-badge" />
             </el-button>

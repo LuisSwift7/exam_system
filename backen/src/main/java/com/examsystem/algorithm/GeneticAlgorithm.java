@@ -100,7 +100,42 @@ public class GeneticAlgorithm {
         return population.get(0).getQuestions();
     }
 
+    private static final Map<Integer, String> TYPE_NAMES = new HashMap<>();
+    static {
+        TYPE_NAMES.put(1, "单选题");
+        TYPE_NAMES.put(2, "多选题");
+        TYPE_NAMES.put(3, "判断题");
+        TYPE_NAMES.put(4, "简答题");
+    }
+
     private List<Chromosome> initializePopulation(int size, AutoGenerateRequest request, Map<Integer, List<Question>> pool) {
+        // 0. 预检查：检查知识点题目数量
+        if (request.getKnowledgePointRequirements() != null) {
+            Map<String, Integer> kpReqs = request.getKnowledgePointRequirements();
+            // 计算当前题目池中各知识点的可用数量
+            Map<String, Long> kpCounts = pool.values().stream()
+                    .flatMap(List::stream)
+                    .filter(q -> q.getCategory() != null)
+                    .collect(Collectors.groupingBy(Question::getCategory, Collectors.counting()));
+            
+            for (Map.Entry<String, Integer> entry : kpReqs.entrySet()) {
+                String kp = entry.getKey();
+                int reqCount = entry.getValue();
+                long actualCount = kpCounts.getOrDefault(kp, 0L);
+                
+                // 注意：这里的检查是基于“整个池子”的，但题目是按Type划分的。
+                // 如果用户要求 5道言语理解，且要求10道单选。
+                // 可能池子里有5道言语理解（全是多选），0道单选。
+                // 那么这里通过，但下面Type检查会失败。
+                // 如果池子里有0道言语理解。
+                // 那么这里会失败。
+                // 这是一个基本检查。
+                if (actualCount < reqCount) {
+                    throw new RuntimeException("题库中 [" + kp + "] 类的题目数量不足 (需要 " + reqCount + ", 实际 " + actualCount + ")");
+                }
+            }
+        }
+
         List<Chromosome> population = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             List<Question> genes = new ArrayList<>();
@@ -109,7 +144,8 @@ public class GeneticAlgorithm {
                 for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
                     List<Question> candidates = pool.getOrDefault(config.getType(), Collections.emptyList());
                     if (candidates.size() < config.getCount()) {
-                        throw new RuntimeException("题库中类型 " + config.getType() + " 的题目数量不足");
+                        String typeName = TYPE_NAMES.getOrDefault(config.getType(), "类型" + config.getType());
+                        throw new RuntimeException("题库中 " + typeName + " 的题目数量不足 (需要 " + config.getCount() + ", 实际 " + candidates.size() + ")");
                     }
                     List<Question> shuffled = new ArrayList<>(candidates);
                     Collections.shuffle(shuffled);
