@@ -202,14 +202,18 @@ onMounted(() => {
 
 <template>
   <div class="page">
-    <div class="page__bg" />
+    <div class="page__bg">
+      <div class="bg-shape shape-1"></div>
+      <div class="bg-shape shape-2"></div>
+      <div class="bg-shape shape-3"></div>
+      <div class="bg-shape shape-4"></div>
+    </div>
+    
     <!-- 装饰元素 -->
     <div class="decorative-elements">
       <div class="decorative-circle circle-1"></div>
       <div class="decorative-circle circle-2"></div>
       <div class="decorative-circle circle-3"></div>
-      <div class="decorative-shape shape-1"></div>
-      <div class="decorative-shape shape-2"></div>
     </div>
     
     <div class="shell">
@@ -511,15 +515,111 @@ onMounted(() => {
 .page {
   min-height: 100vh;
   position: relative;
-  background: #f6f8fa;
+  background: #f8fafc; /* Lighter, cleaner base */
+  overflow-x: hidden;
 }
 
 .page__bg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 80% 10%, rgba(16, 212, 166, 0.08), transparent 40%),
-    radial-gradient(circle at 10% 90%, rgba(255, 161, 22, 0.08), transparent 40%);
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Golden Ratio Split Background */
+.bg-shape {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.6;
+}
+
+.shape-1 {
+  /* Top-left main accent (Golden ratio focus) */
+  width: 60vw;
+  height: 60vw;
+  top: -20vw;
+  left: -10vw;
+  background: radial-gradient(circle, rgba(16, 212, 166, 0.15), rgba(16, 212, 166, 0.05) 60%, transparent 80%);
+  animation: float 15s ease-in-out infinite;
+}
+
+.shape-2 {
+  /* Bottom-right balance */
+  width: 50vw;
+  height: 50vw;
+  bottom: -10vw;
+  right: -10vw;
+  background: radial-gradient(circle, rgba(255, 161, 22, 0.1), rgba(255, 161, 22, 0.05) 60%, transparent 80%);
+  animation: float 20s ease-in-out infinite reverse;
+}
+
+.shape-3 {
+  /* Top-right subtle highlight */
+  width: 30vw;
+  height: 30vw;
+  top: 10vh;
+  right: 10vw;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.08), transparent 70%);
+  animation: pulse 10s ease-in-out infinite;
+}
+
+.shape-4 {
+  /* Left sidebar implication strip */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 280px; /* Sidebar width implication */
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0));
+  backdrop-filter: blur(10px);
+  z-index: 0;
+  display: none; /* Hidden by default, enable if we want a strong sidebar look */
+}
+
+/* Static Decorative Elements (Geometric) */
+.decorative-elements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.decorative-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(16, 212, 166, 0.1);
+}
+
+.circle-1 {
+  width: 400px;
+  height: 400px;
+  top: -50px;
+  right: 10%;
+  animation: rotate 60s linear infinite;
+}
+
+.circle-2 {
+  width: 200px;
+  height: 200px;
+  bottom: 20%;
+  left: 5%;
+  border-color: rgba(255, 161, 22, 0.15);
+  animation: float 12s ease-in-out infinite;
+}
+
+.circle-3 {
+  width: 80px;
+  height: 80px;
+  top: 20%;
+  left: 15%;
+  background: rgba(16, 212, 166, 0.1);
+  border: none;
+  animation: pulse 4s ease-in-out infinite;
 }
 
 .empty-container {
@@ -573,28 +673,21 @@ onMounted(() => {
   text-align: right;
 }
 
-.page__bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.4;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-}
-
 .shell {
   position: relative;
   z-index: 1;
-  max-width: 1200px;
+  max-width: 1400px; /* Increased max-width for better use of space */
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 40px;
 }
 
 .head {
-  height: 64px;
+  height: 80px; /* Taller header */
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  margin-bottom: 20px;
 }
 
 .head__left {
@@ -682,20 +775,22 @@ onMounted(() => {
 }
 
 .card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.02);
-  border: 1px solid rgba(0,0,0,0.04);
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.85); /* Glass effect */
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+  border: 1px solid rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
   position: relative;
   display: flex;
   flex-direction: column;
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .card__status {
@@ -765,10 +860,13 @@ onMounted(() => {
 .tabs {
   display: flex;
   gap: 8px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.8);
   padding: 8px;
-  border-radius: 16px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  backdrop-filter: blur(8px);
   width: fit-content;
+  border: 1px solid rgba(255,255,255,0.5);
 }
 
 .tab {
@@ -828,24 +926,25 @@ onMounted(() => {
 
 /* Welcome Section */
 .welcome-section {
-  background: linear-gradient(135deg, #fff 0%, #f0fdf9 100%);
+  background: linear-gradient(120deg, rgba(255,255,255,0.9) 0%, rgba(240, 253, 249, 0.9) 100%);
   border-radius: 24px;
-  padding: 40px;
+  padding: 48px;
   margin-bottom: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 4px 20px rgba(16, 212, 166, 0.05);
-  border: 1px solid rgba(16, 212, 166, 0.1);
+  box-shadow: 0 10px 30px rgba(16, 212, 166, 0.08);
+  border: 1px solid rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
 }
 
 .welcome-text h1 {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   color: #1a1e23;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   background: linear-gradient(90deg, #1a1e23, #444);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -982,16 +1081,17 @@ onMounted(() => {
 }
 
 .overview-card {
-  background: #fff;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.04);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.6);
 }
 
 .overview-card:hover {
@@ -1042,11 +1142,12 @@ onMounted(() => {
 
 /* 最近活动 */
 .recent-activities {
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
   margin-bottom: 32px;
+  border: 1px solid rgba(255,255,255,0.6);
 }
 
 .activity-header {

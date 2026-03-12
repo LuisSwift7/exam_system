@@ -67,16 +67,17 @@ onMounted(() => {
           placeholder="请输入用户名或操作"
           style="width: 300px"
           clearable
+          @keyup.enter="handleSearch"
         >
           <template #append>
             <el-button @click="handleSearch">
               <Icon icon="iconoir:search" />
             </el-button>
-            <el-button @click="handleReset">
-              <Icon icon="iconoir:refresh" />
-            </el-button>
           </template>
         </el-input>
+        <el-button @click="handleReset" circle>
+          <Icon icon="iconoir:refresh" />
+        </el-button>
       </div>
     </div>
 

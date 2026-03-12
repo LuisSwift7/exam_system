@@ -33,19 +33,18 @@ async function fetchList() {
   }
 }
 
-async function handleStatusChange(row: any) {
+async function handleStatusChange(val: number, row: any) {
   if (isDataLoading.value) return
-  
-  const oldStatus = row.status
-  const newStatus = oldStatus === 1 ? 0 : 1
+
+  const oldStatus = val === 1 ? 0 : 1
   
   try {
     await http.put(`/api/admin/users/${row.id}/status`, {}, {
       params: {
-        status: newStatus
+        status: val
       }
     })
-    ElMessage.success(`用户已${newStatus === 1 ? '启用' : '禁用'}`)
+    ElMessage.success(`用户已${val === 1 ? '启用' : '禁用'}`)
   } catch (e: any) {
     row.status = oldStatus
     ElMessage.error(e?.message || '操作失败')
@@ -76,8 +75,8 @@ onMounted(() => {
 
     <el-table :data="list" v-loading="loading" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="realName" label="真实姓名" width="120" />
+      <el-table-column prop="username" label="用户名" min-width="120" />
+      <el-table-column prop="realName" label="真实姓名" min-width="120" />
       <el-table-column prop="roleCode" label="角色" width="100">
         <template #default="{ row }">
           <el-tag :type="row.roleCode === 'ADMIN' ? 'danger' : row.roleCode === 'TEACHER' ? 'warning' : 'info'">
@@ -91,16 +90,16 @@ onMounted(() => {
             v-model="row.status" 
             :active-value="1"
             :inactive-value="0"
-            @change="handleStatusChange(row)"
+            @change="(val) => handleStatusChange(val, row)"
           />
         </template>
       </el-table-column>
-      <el-table-column prop="lastLoginTime" label="最后登录时间" width="180">
+      <el-table-column prop="lastLoginTime" label="最后登录时间" min-width="180">
         <template #default="{ row }">
           {{ row.lastLoginTime ? new Date(row.lastLoginTime).toLocaleString() : '从未登录' }}
         </template>
       </el-table-column>
-      <el-table-column prop="createdTime" label="创建时间" width="180">
+      <el-table-column prop="createdTime" label="创建时间" min-width="180">
         <template #default="{ row }">
           {{ new Date(row.createdTime).toLocaleString() }}
         </template>
