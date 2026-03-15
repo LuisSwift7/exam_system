@@ -31,20 +31,21 @@ public class ImageController {
     @PostMapping("/upload/image")
     public ApiResponse<?> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
-            // 保存图片
-            // Use absolute path for storage
-            String uploadDir = "D:/examSystem/uploads";
+            String projectPath = System.getProperty("user.dir");
+            String uploadDir = projectPath + java.io.File.separator + "uploads";
             java.io.File dir = new java.io.File(uploadDir);
             if (!dir.exists()) {
-                dir.mkdirs();
+                boolean created = dir.mkdirs();
+                if (!created) {
+                    return ApiResponse.fail(500, "Failed to create directory: " + uploadDir);
+                }
             }
             
             String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
             String filePath = "/uploads/" + fileName;
-            java.io.File dest = new java.io.File(uploadDir + "/" + fileName);
+            java.io.File dest = new java.io.File(dir, fileName);
             file.transferTo(dest);
             
-            // 保存到数据库
             Image image = new Image();
             image.setName(fileName);
             image.setPath(filePath);
@@ -53,7 +54,6 @@ public class ImageController {
             image.setCreatedTime(LocalDateTime.now());
             imageMapper.insert(image);
             
-            // 返回图片URL
             java.util.Map<String, Object> result = new java.util.HashMap<>();
             result.put("url", "http://localhost:8080/api/images/" + image.getId());
             result.put("id", image.getId());
@@ -71,7 +71,8 @@ public class ImageController {
                 return ResponseEntity.notFound().build();
             }
             
-            String filePath = "D:/examSystem" + image.getPath();
+            String projectPath = System.getProperty("user.dir");
+            String filePath = projectPath + image.getPath();
             java.io.File file = new java.io.File(filePath);
             
             if (!file.exists()) {

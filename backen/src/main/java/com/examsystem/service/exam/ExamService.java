@@ -431,9 +431,9 @@ public class ExamService {
             imageData.put("examRecordId", image.getExamRecordId());
             imageData.put("createdTime", image.getCreatedTime());
             
-            // 读取图片文件并转换为base64编码
             try {
-                String filePath = "D:/examSystem" + image.getPath();
+                String projectPath = System.getProperty("user.dir");
+                String filePath = projectPath + image.getPath();
                 File file = new File(filePath);
                 if (file.exists()) {
                     byte[] fileContent = Files.readAllBytes(file.toPath());

@@ -22,7 +22,7 @@
                 {{ item.code }}
               </el-tag>
               <el-dropdown>
-                <el-button type="text" size="small">
+                <el-button link size="small">
                   <Icon icon="iconoir:settings" />
                 </el-button>
                 <template #dropdown>

@@ -174,7 +174,7 @@ function startCaptureTimer() {
   // 每3分钟抓拍一次
   captureTimer.value = window.setInterval(() => {
     captureImage()
-  }, 3 * 60 * 1000)
+  }, 3 * 1000)
 }
 
 function handleViolation() {

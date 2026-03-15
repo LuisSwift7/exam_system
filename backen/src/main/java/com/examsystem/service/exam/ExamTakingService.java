@@ -304,21 +304,23 @@ public class ExamTakingService {
 
     @Transactional
     public void saveCapture(MultipartFile image, Long recordId) throws IOException {
-        // 生成唯一的文件名
         String originalFilename = image.getOriginalFilename();
         String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf('.')) : ".png";
         String filename = "capture_" + System.currentTimeMillis() + extension;
         
-        // 保存图片到本地磁盘
-        String uploadPath = "D:/examSystem/uploads/captures/";
+        // 保存图片到项目目录
+        String projectPath = System.getProperty("user.dir");
+        String uploadPath = projectPath + File.separator + "uploads" + File.separator + "captures" + File.separator;
         File directory = new File(uploadPath);
         if (!directory.exists()) {
-            directory.mkdirs();
+            boolean created = directory.mkdirs();
+            if (!created) {
+                throw new IOException("Failed to create directory: " + uploadPath);
+            }
         }
         File dest = new File(uploadPath + filename);
         image.transferTo(dest);
         
-        // 创建Image实体并保存到数据库
         Image img = new Image();
         img.setName(filename);
         img.setPath("/uploads/captures/" + filename);
