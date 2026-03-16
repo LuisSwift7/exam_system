@@ -52,6 +52,8 @@ import java.util.HashSet;
 @Service
 @RequiredArgsConstructor
 public class ExamService {
+    private static final int DEFAULT_TOTAL_SCORE = 100;
+
     private final ExamMapper examMapper;
     private final ExamQuestionRelationMapper relationMapper;
     private final QuestionMapper questionMapper;
@@ -204,13 +206,15 @@ public class ExamService {
         
         List<Question> questions = questionMapper.selectBatchIds(questionIds);
         Map<Long, Question> qMap = questions.stream().collect(Collectors.toMap(Question::getId, Function.identity()));
+        List<Integer> distributedScores = buildDistributedScores(questionIds.size());
         
         int order = 1;
-        for (Long qId : questionIds) {
+        for (int i = 0; i < questionIds.size(); i++) {
+            Long qId = questionIds.get(i);
             ExamQuestionRelation r = new ExamQuestionRelation();
             r.setExamId(examId);
             r.setQuestionId(qId);
-            r.setScore(score != null ? score : 2);
+            r.setScore(distributedScores.get(i));
             r.setSortOrder(order++);
             
             Question q = qMap.get(qId);
@@ -225,14 +229,9 @@ public class ExamService {
     @Transactional
     public void autoCompose(Long examId, AutoComposeStrategy strategy) {
         relationMapper.delete(new LambdaQueryWrapper<ExamQuestionRelation>().eq(ExamQuestionRelation::getExamId, examId));
+        List<Question> selectedQuestions = new ArrayList<>();
 
         if (strategy.getCategoryCounts() != null && !strategy.getCategoryCounts().isEmpty()) {
-            int totalRequired = 0;
-            for (CategoryCount cc : strategy.getCategoryCounts()) {
-                totalRequired += cc.getCount();
-            }
-            
-            int order = 1;
             for (CategoryCount cc : strategy.getCategoryCounts()) {
                 LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
                 wrapper.eq(Question::getCategory, cc.getCategory());
@@ -246,17 +245,7 @@ public class ExamService {
                 }
                 
                 Collections.shuffle(candidates);
-                List<Question> selected = candidates.subList(0, cc.getCount());
-                
-                for (Question q : selected) {
-                    ExamQuestionRelation r = new ExamQuestionRelation();
-                    r.setExamId(examId);
-                    r.setQuestionId(q.getId());
-                    r.setScore(cc.getScore() != null ? cc.getScore() : 2);
-                    r.setSortOrder(order++);
-                    r.setCategory(q.getCategory());
-                    relationMapper.insert(r);
-                }
+                selectedQuestions.addAll(new ArrayList<>(candidates.subList(0, cc.getCount())));
             }
         } else {
             LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
@@ -269,18 +258,24 @@ public class ExamService {
             }
 
             Collections.shuffle(candidates);
-            List<Question> selected = candidates.subList(0, strategy.getCount());
+            selectedQuestions.addAll(new ArrayList<>(candidates.subList(0, strategy.getCount())));
+        }
 
-            int order = 1;
-            for (Question q : selected) {
-                ExamQuestionRelation r = new ExamQuestionRelation();
-                r.setExamId(examId);
-                r.setQuestionId(q.getId());
-                r.setScore(strategy.getScore() != null ? strategy.getScore() : 2);
-                r.setSortOrder(order++);
-                r.setCategory(q.getCategory());
-                relationMapper.insert(r);
-            }
+        if (selectedQuestions.isEmpty()) {
+            return;
+        }
+
+        List<Integer> distributedScores = buildDistributedScores(selectedQuestions.size());
+        int order = 1;
+        for (int i = 0; i < selectedQuestions.size(); i++) {
+            Question q = selectedQuestions.get(i);
+            ExamQuestionRelation r = new ExamQuestionRelation();
+            r.setExamId(examId);
+            r.setQuestionId(q.getId());
+            r.setScore(distributedScores.get(i));
+            r.setSortOrder(order++);
+            r.setCategory(q.getCategory());
+            relationMapper.insert(r);
         }
     }
 
@@ -314,22 +309,19 @@ public class ExamService {
 
         // 3. 执行遗传算法
         List<Question> selectedQuestions = geneticAlgorithm.generatePaper(candidatePool, request);
+        if (selectedQuestions.isEmpty()) {
+            return;
+        }
 
         // 4. 保存结果
         int order = 1;
-        // 构建类型分值映射
-        Map<Integer, Integer> typeScores = new HashMap<>();
-        if (request.getTypeConfigs() != null) {
-            for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
-                typeScores.put(config.getType(), config.getScore());
-            }
-        }
-
+        List<Integer> distributedScores = buildDistributedScores(selectedQuestions.size());
+        int questionIndex = 0;
         for (Question q : selectedQuestions) {
             ExamQuestionRelation r = new ExamQuestionRelation();
             r.setExamId(examId);
             r.setQuestionId(q.getId());
-            r.setScore(typeScores.getOrDefault(q.getType(), 2)); // 默认2分
+            r.setScore(distributedScores.get(questionIndex++));
             r.setSortOrder(order++);
             r.setCategory(q.getCategory());
             relationMapper.insert(r);
@@ -338,6 +330,23 @@ public class ExamService {
 
     public List<Long> getExamQuestionIds(Long examId) {
         return relationMapper.selectQuestionIdsByExamId(examId);
+    }
+
+    private List<Integer> buildDistributedScores(int questionCount) {
+        if (questionCount <= 0) {
+            return Collections.emptyList();
+        }
+        if (questionCount > DEFAULT_TOTAL_SCORE) {
+            throw new BizException(400, "题目数量超过100，无法按总分100分配");
+        }
+
+        List<Integer> scores = new ArrayList<>(questionCount);
+        int baseScore = DEFAULT_TOTAL_SCORE / questionCount;
+        int remainder = DEFAULT_TOTAL_SCORE % questionCount;
+        for (int i = 0; i < questionCount; i++) {
+            scores.add(baseScore + (i < remainder ? 1 : 0));
+        }
+        return scores;
     }
 
     public List<Map<String, Object>> getExamSubmissions(Long examId) {

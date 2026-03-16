@@ -62,6 +62,70 @@ const previewDifficulty = computed(() => {
   return (totalDiff / previewData.value.questions.length).toFixed(1)
 })
 
+const previewTotalScore = computed(() => {
+  if (!previewData.value?.questions?.length) return 0
+  return previewData.value.questions.reduce((sum: number, q: any) => sum + (q.score || 0), 0)
+})
+
+function formatQuestionType(type: number) {
+  return type === 2 ? '多选题' : '单选题'
+}
+
+function normalizeOptions(options: any) {
+  if (Array.isArray(options)) {
+    return options.map((opt: any, index: number) => {
+      if (typeof opt === 'object' && opt !== null) {
+        return {
+          key: opt.key || String.fromCharCode(65 + index),
+          value: opt.value || '',
+          imageUrl: opt.imageUrl || ''
+        }
+      }
+      if (typeof opt === 'string') {
+        const firstDot = opt.indexOf('.')
+        if (firstDot > -1) {
+          return {
+            key: opt.slice(0, firstDot).trim(),
+            value: opt.slice(firstDot + 1).trim(),
+            imageUrl: ''
+          }
+        }
+        return {
+          key: String.fromCharCode(65 + index),
+          value: opt,
+          imageUrl: ''
+        }
+      }
+      return {
+        key: String.fromCharCode(65 + index),
+        value: '',
+        imageUrl: ''
+      }
+    })
+  }
+
+  if (typeof options === 'string') {
+    try {
+      return normalizeOptions(JSON.parse(options))
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
+function normalizePreviewData(data: any) {
+  if (!data) return null
+  return {
+    ...data,
+    questions: (data.questions || []).map((question: any) => ({
+      ...question,
+      options: normalizeOptions(question.options)
+    }))
+  }
+}
+
 async function fetchList() {
   loading.value = true
   try {
@@ -137,7 +201,7 @@ async function handlePublish(row: any) {
 async function handlePreview(row: any) {
   try {
     const res = await http.get(`/api/teacher/exams/${row.id}/preview`)
-    previewData.value = res.data.data
+    previewData.value = normalizePreviewData(res.data.data)
     previewVisible.value = true
   } catch (e: any) {
     ElMessage.error(e?.message || '加载预览失败')
@@ -193,7 +257,7 @@ async function handleViewCaptures(recordId: number) {
 
 async function submit() {
   if (!formRef.value) return
-  await formRef.value.validate(async (valid, fields) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
         // Format dates
@@ -244,8 +308,7 @@ async function submitManual() {
   if (!currentExamId.value) return
   try {
     await http.post(`/api/teacher/exams/${currentExamId.value}/manual-compose`, {
-      questionIds: selectedQIds.value,
-      score: 2 // Default score per question
+      questionIds: selectedQIds.value
     })
     ElMessage.success('手动组卷成功')
     composeVisible.value = false
@@ -405,7 +468,7 @@ onMounted(() => {
           <h2>{{ previewData.exam.title }}</h2>
           <div class="p-meta">
             <el-tag effect="dark">{{ getStatusTag(previewData.exam.status).text }}</el-tag>
-            <span>总分: {{ previewData.questions.reduce((sum: number, q: any) => sum + q.score, 0) }}</span>
+            <span>总分: {{ previewTotalScore }}</span>
             <span>题目数: {{ previewData.questions.length }}</span>
             <span>时长: {{ previewData.exam.duration }}分钟</span>
             <span>难度: {{ previewDifficulty }}</span>
@@ -416,17 +479,24 @@ onMounted(() => {
         <div class="p-list">
           <div v-for="(q, idx) in previewData.questions" :key="q.id" class="p-item">
             <div class="p-item-head">
-              <span class="idx">{{ Number(idx) + 1 }}.</span>
-              <el-tag size="small" effect="plain">{{ q.type === 2 ? '多选' : '单选' }}</el-tag>
-              <el-tag size="small" type="warning" effect="plain">{{ q.score }}分</el-tag>
+              <div class="p-item-title">
+                <span class="idx">{{ Number(idx) + 1 }}.</span>
+                <span class="p-question-type">{{ formatQuestionType(q.type) }}</span>
+                <span class="p-question-score">{{ q.score }}分</span>
+              </div>
               <span class="p-q-diff">难度: {{ q.difficulty }}</span>
             </div>
             <div class="p-item-body">
               <div class="q-content">{{ q.content }}</div>
-              <div class="q-opts">
-                 <div v-for="opt in (typeof q.options === 'string' ? JSON.parse(q.options) : q.options)" :key="opt" class="q-opt">
-                   {{ opt }}
-                 </div>
+              <img v-if="q.contentImageUrl" :src="q.contentImageUrl" class="q-image" alt="Question Image" />
+              <div v-if="q.options.length" class="q-opts">
+                <div v-for="opt in q.options" :key="opt.key" class="q-opt">
+                  <span class="q-opt-key">{{ opt.key }}</span>
+                  <div class="q-opt-body">
+                    <span v-if="opt.value" class="q-opt-text">{{ opt.value }}</span>
+                    <img v-if="opt.imageUrl" :src="opt.imageUrl" class="q-opt-image" alt="Option Image" />
+                  </div>
+                </div>
               </div>
               <div class="q-ans-box">
                 <div class="q-ans">
@@ -584,15 +654,40 @@ onMounted(() => {
 
 .p-item-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.p-item-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .idx {
   font-weight: 700;
   font-size: 16px;
   color: #1a1e23;
+}
+
+.p-question-type,
+.p-question-score {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.p-question-type {
+  background: #edfdf8;
+  color: #0f8f70;
+}
+
+.p-question-score {
+  background: #fff4e8;
+  color: #c26a1b;
 }
 
 .p-q-diff {
@@ -608,19 +703,61 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.q-image {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 16px;
+  background: #fff;
+}
+
 .q-opts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .q-opt {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #f8fafc;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.q-opt-key {
+  font-size: 13px;
+  font-weight: 800;
+  color: #64748b;
+  min-width: 18px;
+  line-height: 1.6;
+}
+
+.q-opt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.q-opt-text {
   font-size: 14px;
-  color: #555;
-  background: #f8f9fa;
-  padding: 8px 12px;
-  border-radius: 6px;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.q-opt-image {
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #dbe4ee;
+  background: #fff;
 }
 
 .q-ans-box {

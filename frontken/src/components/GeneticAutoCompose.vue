@@ -18,8 +18,8 @@ const form = ref({
   difficulty: 3,
   questionCount: 20,
   typeConfigs: [
-    { type: 1, count: 10, score: 2, name: '单选题' }, // 1: Single
-    { type: 2, count: 0, score: 4, name: '多选题' },  // 2: Multiple
+    { type: 1, count: 10, score: 1, name: '单选题' }, // 1: Single
+    { type: 2, count: 0, score: 1, name: '多选题' },  // 2: Multiple
   ],
   knowledgePointRequirements: [
      { category: '言语理解', count: 0 },
@@ -32,7 +32,7 @@ const form = ref({
     difficultyWeight: 0.25,
     coverageWeight: 0.25,
     typeRatioWeight: 0.25,
-    scoreWeight: 0.25
+    scoreWeight: 0
   },
   constraints: {
     avoidDuplicates: true,
@@ -60,7 +60,7 @@ async function handleGenerate() {
     // Transform form data to match backend DTO
     const payload = {
       examId: props.examId,
-      totalScore: totalScore.value,
+      totalScore: 100,
       difficulty: form.value.difficulty,
       questionCount: totalCount.value,
       typeConfigs: form.value.typeConfigs.filter(c => c.count > 0).map(c => ({
@@ -97,7 +97,7 @@ const totalCount = computed(() => {
 })
 
 const totalScore = computed(() => {
-  return form.value.typeConfigs.reduce((sum, c) => sum + (c.count * c.score), 0)
+  return 100
 })
 
 </script>
@@ -131,14 +131,9 @@ const totalScore = computed(() => {
             <el-input-number v-model="row.count" :min="0" size="small" />
           </template>
         </el-table-column>
-        <el-table-column label="分值">
-          <template #default="{ row }">
-            <el-input-number v-model="row.score" :min="1" size="small" />
-          </template>
-        </el-table-column>
       </el-table>
       <div class="summary">
-        总题数: {{ totalCount }} / 总分: {{ totalScore }}
+        总题数: {{ totalCount }} / 总分: {{ totalScore }} / 系统自动均分
       </div>
     </div>
 
@@ -165,9 +160,6 @@ const totalScore = computed(() => {
         </el-form-item>
         <el-form-item label="题型比例">
           <el-slider v-model="form.weights.typeRatioWeight" :min="0" :max="1" :step="0.05" />
-        </el-form-item>
-        <el-form-item label="总分误差">
-          <el-slider v-model="form.weights.scoreWeight" :min="0" :max="1" :step="0.05" />
         </el-form-item>
       </el-form>
     </div>
