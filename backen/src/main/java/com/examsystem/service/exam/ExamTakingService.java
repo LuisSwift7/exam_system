@@ -3,21 +3,32 @@ package com.examsystem.service.exam;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.examsystem.common.BizException;
 import com.examsystem.controller.dto.ExamResultResponse;
-import com.examsystem.entity.*;
-import com.examsystem.mapper.*;
-import com.examsystem.security.UserPrincipal;
+import com.examsystem.entity.Exam;
+import com.examsystem.entity.ExamAnswer;
+import com.examsystem.entity.ExamQuestionRelation;
+import com.examsystem.entity.ExamRecord;
+import com.examsystem.entity.Image;
+import com.examsystem.entity.Question;
+import com.examsystem.entity.WrongBook;
+import com.examsystem.mapper.ExamAnswerMapper;
+import com.examsystem.mapper.ExamMapper;
+import com.examsystem.mapper.ExamQuestionRelationMapper;
+import com.examsystem.mapper.ExamRecordMapper;
+import com.examsystem.mapper.ImageMapper;
+import com.examsystem.mapper.QuestionMapper;
+import com.examsystem.mapper.WrongBookMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import org.springframework.web.multipart.MultipartFile;
+
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,13 +54,13 @@ public class ExamTakingService {
         ExamRecord record = examRecordMapper.selectById(recordId);
         if (record == null) throw new BizException(4004, "记录不存在");
         if (record.getStatus() == 0) throw new BizException(4003, "考试未完成，无法查看结果");
-        
+
         Exam exam = examMapper.selectById(record.getExamId());
-        
+
         List<ExamAnswer> answers = examAnswerMapper.selectList(new LambdaQueryWrapper<ExamAnswer>()
                 .eq(ExamAnswer::getRecordId, recordId));
         Map<Long, ExamAnswer> ansMap = answers.stream().collect(Collectors.toMap(ExamAnswer::getQuestionId, Function.identity()));
-        
+
         List<ExamQuestionRelation> relations = relationMapper.selectList(new LambdaQueryWrapper<ExamQuestionRelation>()
                 .eq(ExamQuestionRelation::getExamId, record.getExamId()));
         Map<Long, Integer> scoreMap = relations.stream()
@@ -59,7 +70,7 @@ public class ExamTakingService {
         int totalScore = relations.stream().mapToInt(ExamQuestionRelation::getScore).sum();
 
         List<Question> questions = getExamQuestions(record.getExamId());
-        
+
         List<ExamResultResponse.QuestionResult> qResults = questions.stream().map(q -> {
             ExamResultResponse.QuestionResult qr = new ExamResultResponse.QuestionResult();
             qr.setId(q.getId());
@@ -72,7 +83,7 @@ public class ExamTakingService {
             qr.setAnalysis(q.getAnalysis());
             qr.setCategory(categoryMap.getOrDefault(q.getId(), q.getCategory()));
             qr.setStemId(q.getStemId());
-            
+
             ExamAnswer a = ansMap.get(q.getId());
             if (a != null) {
                 qr.setStudentAnswer(a.getStudentAnswer());
@@ -80,12 +91,12 @@ public class ExamTakingService {
             }
             return qr;
         }).collect(Collectors.toList());
-        
+
         Map<String, ExamResultResponse.CategoryStat> categoryStatMap = new HashMap<>();
         for (ExamResultResponse.QuestionResult qr : qResults) {
             String cat = qr.getCategory();
             if (cat == null || cat.isEmpty()) cat = "未分类";
-            
+
             ExamResultResponse.CategoryStat stat = categoryStatMap.computeIfAbsent(cat, k -> {
                 ExamResultResponse.CategoryStat s = new ExamResultResponse.CategoryStat();
                 s.setCategory(k);
@@ -94,21 +105,21 @@ public class ExamTakingService {
                 s.setScore(0);
                 return s;
             });
-            
+
             stat.setTotalCount(stat.getTotalCount() + 1);
             stat.setScore(stat.getScore() + (qr.getScore() != null ? qr.getScore() : 0));
             if (qr.getIsCorrect() != null && qr.getIsCorrect() == 1) {
                 stat.setCorrectCount(stat.getCorrectCount() + 1);
             }
         }
-        
+
         List<ExamResultResponse.CategoryStat> categoryStats = new ArrayList<>(categoryStatMap.values());
         for (ExamResultResponse.CategoryStat stat : categoryStats) {
             if (stat.getTotalCount() > 0) {
                 stat.setAccuracyRate(Math.round(stat.getCorrectCount() * 100.0 / stat.getTotalCount()) / 100.0);
             }
         }
-        
+
         ExamResultResponse res = new ExamResultResponse();
         res.setRecord(record);
         res.setExam(exam);
@@ -123,7 +134,7 @@ public class ExamTakingService {
         ExamRecord record = examRecordMapper.selectById(recordId);
         if (record != null) {
             record.setStatus(status);
-            if (status == 2) { // Ended
+            if (status == 2) {
                 record.setSubmitTime(LocalDateTime.now());
             }
             examRecordMapper.updateById(record);
@@ -141,40 +152,33 @@ public class ExamTakingService {
     public ExamRecord startExam(Long examId, Long studentId) {
         Exam exam = examMapper.selectById(examId);
         if (exam == null) throw new BizException(4001, "考试不存在");
-        
-        // Check if already started
+
         ExamRecord record = getRecord(examId, studentId);
         if (record != null) {
-            // Only reset start time if exam was submitted (status = 1)
-            // For normal refresh, keep original start time
             if (record.getStatus() == 1) {
-                // Reset start time for withdrawn exams
                 LocalDateTime now = LocalDateTime.now();
                 record.setStartTime(now);
-                record.setStatus(0); // Reset to in progress
-                record.setSubmitTime(null); // Clear submit time
-                record.setScore(null); // Clear score
+                record.setStatus(0);
+                record.setSubmitTime(null);
+                record.setScore(null);
                 examRecordMapper.updateById(record);
-                
-                // Clear all answers' correctness flags
+
                 List<ExamAnswer> answers = examAnswerMapper.selectList(
-                    new LambdaQueryWrapper<ExamAnswer>()
-                        .eq(ExamAnswer::getRecordId, record.getId())
+                        new LambdaQueryWrapper<ExamAnswer>()
+                                .eq(ExamAnswer::getRecordId, record.getId())
                 );
                 for (ExamAnswer answer : answers) {
                     answer.setIsCorrect(null);
                     examAnswerMapper.updateById(answer);
                 }
             }
-            
-            // Calculate remaining time based on original start time
+
             long duration = exam.getDuration() * 60L;
             long elapsed = java.time.Duration.between(record.getStartTime(), LocalDateTime.now()).getSeconds();
             record.setRemainingSeconds(Math.max(0, duration - elapsed));
             return record;
         }
 
-        // Check time
         LocalDateTime now = LocalDateTime.now();
         if (exam.getStartTime() != null && now.isBefore(exam.getStartTime())) {
             throw new BizException(4002, "考试未开始");
@@ -186,7 +190,7 @@ public class ExamTakingService {
         record = new ExamRecord();
         record.setExamId(examId);
         record.setStudentId(studentId);
-        record.setStatus(0); // In Progress
+        record.setStatus(0);
         record.setStartTime(now);
         examRecordMapper.insert(record);
 
@@ -199,40 +203,61 @@ public class ExamTakingService {
                 .eq(ExamQuestionRelation::getExamId, examId)
                 .orderByAsc(ExamQuestionRelation::getSortOrder));
         if (relations.isEmpty()) return new ArrayList<>();
-        
+
         List<Long> qIds = relations.stream().map(ExamQuestionRelation::getQuestionId).collect(Collectors.toList());
         Map<Long, Question> qMap = questionMapper.selectBatchIds(qIds).stream()
-                .collect(Collectors.toMap(Question::getId, q -> q));
-        
-        // 构建题目列表，确保同一题干的题目连续
-        List<Question> questions = new ArrayList<>();
-        Map<Long, List<Question>> stemGroups = new HashMap<>();
+                .collect(Collectors.toMap(Question::getId, Function.identity()));
+
+        LinkedHashMap<String, List<ExamQuestionRelation>> relationsByCategory = new LinkedHashMap<>();
+        for (ExamQuestionRelation relation : relations) {
+            Question question = qMap.get(relation.getQuestionId());
+            if (question == null) {
+                continue;
+            }
+            String category = resolveQuestionCategory(relation, question);
+            relationsByCategory.computeIfAbsent(category, key -> new ArrayList<>()).add(relation);
+        }
+
+        List<Question> orderedQuestions = new ArrayList<>();
         Set<Long> processedStemIds = new HashSet<>();
-        
-        // 遍历题目，按原排序顺序处理
-        for (ExamQuestionRelation r : relations) {
-            Question q = qMap.get(r.getQuestionId());
-            if (q != null) {
-                if (q.getStemId() != null && !processedStemIds.contains(q.getStemId())) {
-                    // 如果是资料分析题且该stemId尚未处理，添加该stemId的所有题目
-                    List<Question> stemQuestions = new ArrayList<>();
-                    for (ExamQuestionRelation r2 : relations) {
-                        Question q2 = qMap.get(r2.getQuestionId());
-                        if (q2 != null && q.getStemId().equals(q2.getStemId())) {
-                            stemQuestions.add(q2);
+        for (List<ExamQuestionRelation> categoryRelations : relationsByCategory.values()) {
+            for (ExamQuestionRelation relation : categoryRelations) {
+                Question question = qMap.get(relation.getQuestionId());
+                if (question == null) {
+                    continue;
+                }
+
+                question.setCategory(resolveQuestionCategory(relation, question));
+                if (question.getStemId() != null) {
+                    if (processedStemIds.contains(question.getStemId())) {
+                        continue;
+                    }
+
+                    for (ExamQuestionRelation stemRelation : categoryRelations) {
+                        Question stemQuestion = qMap.get(stemRelation.getQuestionId());
+                        if (stemQuestion != null && question.getStemId().equals(stemQuestion.getStemId())) {
+                            stemQuestion.setCategory(resolveQuestionCategory(stemRelation, stemQuestion));
+                            orderedQuestions.add(stemQuestion);
                         }
                     }
-                    questions.addAll(stemQuestions);
-                    processedStemIds.add(q.getStemId());
-                } else if (q.getStemId() == null) {
-                    // 如果是非资料分析题，直接添加
-                    questions.add(q);
+                    processedStemIds.add(question.getStemId());
+                } else {
+                    orderedQuestions.add(question);
                 }
-                // 资料分析题且该stemId已处理的情况，跳过，因为已经添加过了
             }
         }
-        
-        return questions;
+
+        return orderedQuestions;
+    }
+
+    private String resolveQuestionCategory(ExamQuestionRelation relation, Question question) {
+        if (relation.getCategory() != null && !relation.getCategory().isEmpty()) {
+            return relation.getCategory();
+        }
+        if (question.getCategory() != null && !question.getCategory().isEmpty()) {
+            return question.getCategory();
+        }
+        return "未分类";
     }
 
     @Transactional
@@ -245,7 +270,7 @@ public class ExamTakingService {
         ExamAnswer ea = examAnswerMapper.selectOne(new LambdaQueryWrapper<ExamAnswer>()
                 .eq(ExamAnswer::getRecordId, recordId)
                 .eq(ExamAnswer::getQuestionId, questionId));
-        
+
         if (ea == null) {
             ea = new ExamAnswer();
             ea.setRecordId(recordId);
@@ -264,40 +289,38 @@ public class ExamTakingService {
     public void submitExam(Long recordId) {
         ExamRecord record = examRecordMapper.selectById(recordId);
         if (record == null) throw new BizException(4004, "记录不存在");
-        if (record.getStatus() == 1) return; // Already submitted
+        if (record.getStatus() == 1) return;
 
         record.setStatus(1);
         record.setSubmitTime(LocalDateTime.now());
-        
-        // Calculate score (simple version)
+
         List<ExamAnswer> answers = examAnswerMapper.selectList(new LambdaQueryWrapper<ExamAnswer>()
                 .eq(ExamAnswer::getRecordId, recordId));
-        
+
         List<ExamQuestionRelation> relations = relationMapper.selectList(new LambdaQueryWrapper<ExamQuestionRelation>()
                 .eq(ExamQuestionRelation::getExamId, record.getExamId()));
         Map<Long, Integer> scoreMap = relations.stream()
                 .collect(Collectors.toMap(ExamQuestionRelation::getQuestionId, ExamQuestionRelation::getScore));
-        
+
         int totalScore = 0;
         List<Long> qIds = answers.stream().map(ExamAnswer::getQuestionId).collect(Collectors.toList());
         if (!qIds.isEmpty()) {
             Map<Long, Question> qMap = questionMapper.selectBatchIds(qIds).stream()
                     .collect(Collectors.toMap(Question::getId, Function.identity()));
-            
+
             for (ExamAnswer ans : answers) {
                 Question q = qMap.get(ans.getQuestionId());
                 if (q != null && ans.getStudentAnswer() != null && ans.getStudentAnswer().equalsIgnoreCase(q.getAnswer())) {
                     ans.setIsCorrect(1);
                     totalScore += scoreMap.getOrDefault(q.getId(), 0);
-                } else {
+                } else if (q != null) {
                     ans.setIsCorrect(0);
-                    // Add to Wrong Book
                     saveWrongQuestion(record.getStudentId(), q.getId(), record.getExamId());
                 }
                 examAnswerMapper.updateById(ans);
             }
         }
-        
+
         record.setScore(totalScore);
         examRecordMapper.updateById(record);
     }
@@ -307,8 +330,7 @@ public class ExamTakingService {
         String originalFilename = image.getOriginalFilename();
         String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf('.')) : ".png";
         String filename = "capture_" + System.currentTimeMillis() + extension;
-        
-        // 保存图片到项目目录
+
         String projectPath = System.getProperty("user.dir");
         String uploadPath = projectPath + File.separator + "uploads" + File.separator + "captures" + File.separator;
         File directory = new File(uploadPath);
@@ -320,7 +342,7 @@ public class ExamTakingService {
         }
         File dest = new File(uploadPath + filename);
         image.transferTo(dest);
-        
+
         Image img = new Image();
         img.setName(filename);
         img.setPath("/uploads/captures/" + filename);
@@ -332,7 +354,6 @@ public class ExamTakingService {
     }
 
     public List<Image> getCaptures(Long recordId) {
-        // 查询该考试记录的所有抓拍图片，按创建时间排序
         return imageMapper.selectList(new LambdaQueryWrapper<Image>()
                 .eq(Image::getExamRecordId, recordId)
                 .orderByAsc(Image::getCreatedTime));
@@ -342,7 +363,7 @@ public class ExamTakingService {
         WrongBook wb = wrongBookMapper.selectOne(new LambdaQueryWrapper<WrongBook>()
                 .eq(WrongBook::getStudentId, studentId)
                 .eq(WrongBook::getQuestionId, questionId));
-        
+
         if (wb == null) {
             wb = new WrongBook();
             wb.setStudentId(studentId);
@@ -356,7 +377,7 @@ public class ExamTakingService {
             wrongBookMapper.insert(wb);
         } else {
             wb.setWrongCount(wb.getWrongCount() + 1);
-            wb.setExamId(examId); // Update to latest exam
+            wb.setExamId(examId);
             wb.setUpdateTime(LocalDateTime.now());
             wrongBookMapper.updateById(wb);
         }
