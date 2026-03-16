@@ -38,6 +38,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -297,10 +298,6 @@ public class ExamService {
         }
         
         // 知识点筛选 (Category)
-        if (request.getKnowledgePointRequirements() != null && !request.getKnowledgePointRequirements().isEmpty()) {
-            wrapper.in(Question::getCategory, request.getKnowledgePointRequirements().keySet());
-        }
-
         List<Question> candidatePool = questionMapper.selectList(wrapper);
         
         if (candidatePool.isEmpty()) {
@@ -315,6 +312,9 @@ public class ExamService {
 
         // 4. 保存结果
         int order = 1;
+        validateGeneratedQuestions(request, selectedQuestions);
+        selectedQuestions = reorderQuestionsByCategoryAndStem(selectedQuestions);
+
         List<Integer> distributedScores = buildDistributedScores(selectedQuestions.size());
         int questionIndex = 0;
         for (Question q : selectedQuestions) {
@@ -326,6 +326,66 @@ public class ExamService {
             r.setCategory(q.getCategory());
             relationMapper.insert(r);
         }
+    }
+
+    private void validateGeneratedQuestions(AutoGenerateRequest request, List<Question> selectedQuestions) {
+        int expectedCount = request.getQuestionCount() != null && request.getQuestionCount() > 0
+                ? request.getQuestionCount()
+                : selectedQuestions.size();
+        if (selectedQuestions.size() != expectedCount) {
+            throw new BizException(400, "智能组卷结果异常：期望" + expectedCount + "道题，实际生成" + selectedQuestions.size() + "道题");
+        }
+
+        if (request.getTypeConfigs() == null || request.getTypeConfigs().isEmpty()) {
+            return;
+        }
+
+        Map<Integer, Long> actualTypeCounts = selectedQuestions.stream()
+                .collect(Collectors.groupingBy(Question::getType, Collectors.counting()));
+
+        for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
+            if (config == null || config.getType() == null || config.getCount() == null || config.getCount() <= 0) {
+                continue;
+            }
+
+            long actualCount = actualTypeCounts.getOrDefault(config.getType(), 0L);
+            if (actualCount < config.getCount()) {
+                throw new BizException(400, "智能组卷结果异常：题型" + config.getType() + "至少需要" + config.getCount() + "道，实际仅生成" + actualCount + "道");
+            }
+        }
+    }
+
+    private List<Question> reorderQuestionsByCategoryAndStem(List<Question> questions) {
+        if (questions == null || questions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LinkedHashMap<String, List<Question>> questionsByCategory = new LinkedHashMap<>();
+        for (Question question : questions) {
+            String category = StringUtils.hasText(question.getCategory()) ? question.getCategory() : "未分类";
+            questionsByCategory.computeIfAbsent(category, key -> new ArrayList<>()).add(question);
+        }
+
+        List<Question> orderedQuestions = new ArrayList<>(questions.size());
+        Set<Long> processedStemIds = new HashSet<>();
+        for (List<Question> categoryQuestions : questionsByCategory.values()) {
+            for (Question question : categoryQuestions) {
+                if (question.getStemId() == null) {
+                    orderedQuestions.add(question);
+                    continue;
+                }
+                if (!processedStemIds.add(question.getStemId())) {
+                    continue;
+                }
+
+                for (Question groupedQuestion : categoryQuestions) {
+                    if (question.getStemId().equals(groupedQuestion.getStemId())) {
+                        orderedQuestions.add(groupedQuestion);
+                    }
+                }
+            }
+        }
+        return orderedQuestions;
     }
 
     public List<Long> getExamQuestionIds(Long examId) {

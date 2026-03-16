@@ -6,7 +6,17 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -18,34 +28,35 @@ public class GeneticAlgorithm {
     private static final double CROSSOVER_RATE = 0.85;
     private static final double MUTATION_RATE = 0.15;
     private static final int EARLY_STOP_GENERATIONS = 20;
+    private static final Random RANDOM = new Random();
 
-    /**
-     * 核心入口方法
-     */
+    private static final Map<Integer, String> TYPE_NAMES = new HashMap<>();
+
+    static {
+        TYPE_NAMES.put(1, "单选题");
+        TYPE_NAMES.put(2, "多选题");
+        TYPE_NAMES.put(3, "判断题");
+        TYPE_NAMES.put(4, "简答题");
+    }
+
     public List<Question> generatePaper(List<Question> questionPool, AutoGenerateRequest request) {
-        // 1. 数据预处理：将题目池按类型/知识点分组，便于快速检索
         Map<Integer, List<Question>> questionsByType = questionPool.stream()
+                .filter(Objects::nonNull)
+                .filter(question -> question.getId() != null)
                 .collect(Collectors.groupingBy(Question::getType));
-        
-        // 2. 初始化种群
-        List<Chromosome> population = initializePopulation(POPULATION_SIZE, request, questionsByType);
-        
-        List<Chromosome> bestHistory = new ArrayList<>();
+
+        validateKnowledgeCoverage(request, questionPool);
+
+        Map<Integer, Integer> targetCounts = resolveTargetCounts(request, questionsByType);
+        List<Chromosome> population = initializePopulation(POPULATION_SIZE, targetCounts, questionsByType);
+
         int noImprovementCount = 0;
         double bestFitness = -1;
 
-        // 3. 进化循环
         for (int gen = 0; gen < MAX_GENERATIONS; gen++) {
-            // 计算适应度
-            calculateFitness(population, request);
-            
-            // 非支配排序与拥挤距离计算 (简化版：直接使用加权适应度进行排序)
-            // NSGA-II 的核心是多目标优化，但这里用户最终要求综合得分，所以我们可以用加权和作为主适应度，
-            // 同时保留帕累托前沿的概念用于多样性保持。
-            // 这里为了简化实现且满足用户 "输出最符合权重的一套" 的需求，我们主要优化加权适应度。
-            
+            calculateFitness(population, request, targetCounts);
             population.sort(Comparator.comparingDouble(Chromosome::getFitness).reversed());
-            
+
             Chromosome currentBest = population.get(0);
             if (currentBest.getFitness() > bestFitness) {
                 bestFitness = currentBest.getFitness();
@@ -54,287 +65,408 @@ public class GeneticAlgorithm {
                 noImprovementCount++;
             }
 
-            // 早停策略
             if (noImprovementCount >= EARLY_STOP_GENERATIONS) {
                 log.info("Early stopping at generation {}", gen);
                 break;
             }
 
-            // 选择、交叉、变异
             List<Chromosome> newPopulation = new ArrayList<>();
-            
-            // 精英保留 (Top 10%)
-            int eliteCount = (int) (POPULATION_SIZE * 0.1);
+            int eliteCount = Math.max(1, (int) (POPULATION_SIZE * 0.1));
             newPopulation.addAll(population.subList(0, eliteCount));
-            
+
             while (newPopulation.size() < POPULATION_SIZE) {
-                // 锦标赛选择
-                Chromosome p1 = tournamentSelection(population);
-                Chromosome p2 = tournamentSelection(population);
-                
-                // 交叉
-                Chromosome child;
-                if (Math.random() < CROSSOVER_RATE) {
-                    child = crossover(p1, p2, request);
-                } else {
-                    child = p1.clone();
-                }
-                
-                // 变异
+                Chromosome parent1 = tournamentSelection(population);
+                Chromosome parent2 = tournamentSelection(population);
+
+                Chromosome child = Math.random() < CROSSOVER_RATE
+                        ? crossover(parent1, parent2, targetCounts, questionsByType)
+                        : parent1.clone();
+
                 if (Math.random() < MUTATION_RATE) {
-                    mutate(child, questionsByType, request);
+                    mutate(child, questionsByType);
                 }
-                
-                // 可行性修复 (确保无重复，题型满足)
-                repair(child, questionsByType, request);
-                
+
+                repair(child, questionsByType, targetCounts);
                 newPopulation.add(child);
             }
-            
+
             population = newPopulation;
         }
 
-        // 4. 返回最优解
-        calculateFitness(population, request);
+        calculateFitness(population, request, targetCounts);
         population.sort(Comparator.comparingDouble(Chromosome::getFitness).reversed());
-        return population.get(0).getQuestions();
+
+        Chromosome best = population.get(0).clone();
+        repair(best, questionsByType, targetCounts);
+        return best.getQuestions();
     }
 
-    private static final Map<Integer, String> TYPE_NAMES = new HashMap<>();
-    static {
-        TYPE_NAMES.put(1, "单选题");
-        TYPE_NAMES.put(2, "多选题");
-        TYPE_NAMES.put(3, "判断题");
-        TYPE_NAMES.put(4, "简答题");
-    }
-
-    private List<Chromosome> initializePopulation(int size, AutoGenerateRequest request, Map<Integer, List<Question>> pool) {
-        // 0. 预检查：检查知识点题目数量
-        if (request.getKnowledgePointRequirements() != null) {
-            Map<String, Integer> kpReqs = request.getKnowledgePointRequirements();
-            // 计算当前题目池中各知识点的可用数量
-            Map<String, Long> kpCounts = pool.values().stream()
-                    .flatMap(List::stream)
-                    .filter(q -> q.getCategory() != null)
-                    .collect(Collectors.groupingBy(Question::getCategory, Collectors.counting()));
-            
-            for (Map.Entry<String, Integer> entry : kpReqs.entrySet()) {
-                String kp = entry.getKey();
-                int reqCount = entry.getValue();
-                long actualCount = kpCounts.getOrDefault(kp, 0L);
-                
-                // 注意：这里的检查是基于“整个池子”的，但题目是按Type划分的。
-                // 如果用户要求 5道言语理解，且要求10道单选。
-                // 可能池子里有5道言语理解（全是多选），0道单选。
-                // 那么这里通过，但下面Type检查会失败。
-                // 如果池子里有0道言语理解。
-                // 那么这里会失败。
-                // 这是一个基本检查。
-                if (actualCount < reqCount) {
-                    throw new RuntimeException("题库中 [" + kp + "] 类的题目数量不足 (需要 " + reqCount + ", 实际 " + actualCount + ")");
-                }
-            }
-        }
+    private List<Chromosome> initializePopulation(int size, Map<Integer, Integer> targetCounts, Map<Integer, List<Question>> pool) {
+        validateTypeAvailability(targetCounts, pool);
 
         List<Chromosome> population = new ArrayList<>();
         for (int i = 0; i < size; i++) {
-            List<Question> genes = new ArrayList<>();
-            // 按题型配置随机抽取
-            if (request.getTypeConfigs() != null) {
-                for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
-                    List<Question> candidates = pool.getOrDefault(config.getType(), Collections.emptyList());
-                    if (candidates.size() < config.getCount()) {
-                        String typeName = TYPE_NAMES.getOrDefault(config.getType(), "类型" + config.getType());
-                        throw new RuntimeException("题库中 " + typeName + " 的题目数量不足 (需要 " + config.getCount() + ", 实际 " + candidates.size() + ")");
-                    }
-                    List<Question> shuffled = new ArrayList<>(candidates);
-                    Collections.shuffle(shuffled);
-                    genes.addAll(shuffled.subList(0, config.getCount()));
-                }
-            }
-            population.add(new Chromosome(genes));
+            population.add(new Chromosome(buildChromosomeGenes(targetCounts, pool, null, null)));
         }
         return population;
     }
 
-    private void calculateFitness(List<Chromosome> population, AutoGenerateRequest request) {
-        for (Chromosome chrom : population) {
-            double f1 = calculateDifficultyDeviation(chrom, request);
-            double f2 = calculateKnowledgeCoverage(chrom, request);
-            double f3 = calculateTypeRatioError(chrom, request);
-            double f4 = calculateScoreError(chrom, request);
-            
-            double penalty = calculatePenalty(chrom, request);
-            
-            // 综合适应度 = w1*f1 + ... - 罚分
-            // 注意：f1, f3, f4 是误差（越小越好），f2 是覆盖率（越大越好，但目标是 1-覆盖率 越小越好? 用户公式是 1 - 覆盖率）
-            // 用户公式：f2 = 1 - (已覆盖/总要求)。所以 f2 也是越小越好。
-            // 适应度应该越大越好，所以取倒数或负数。
-            // 用户公式：F = w1*f1 + ... + 罚分。这里 F 是误差总和，越小越好。
-            // 遗传算法通常最大化适应度，所以我们取 Fitness = 1 / (F + epsilon) 或者 -F。
-            // 这里使用 100 - weighted_error 作为适应度，或者直接用 -error。
-            
-            double weightedError = 
-                    request.getWeights().getDifficultyWeight() * f1 +
-                    request.getWeights().getCoverageWeight() * f2 +
-                    request.getWeights().getTypeRatioWeight() * f3 +
-                    request.getWeights().getScoreWeight() * f4 +
-                    penalty;
-            
-            // 适应度函数：误差越小适应度越高
-            chrom.setFitness(100.0 / (1.0 + weightedError));
-            chrom.setError(weightedError);
+    private Map<Integer, Integer> resolveTargetCounts(AutoGenerateRequest request, Map<Integer, List<Question>> pool) {
+        Map<Integer, Integer> minimumTypeCounts = normalizeTypeCounts(request);
+        int minimumTotal = minimumTypeCounts.values().stream().mapToInt(Integer::intValue).sum();
+        int requestedTotal = request.getQuestionCount() != null && request.getQuestionCount() > 0
+                ? request.getQuestionCount()
+                : minimumTotal;
+
+        if (requestedTotal <= 0) {
+            throw new RuntimeException("总题数必须大于 0");
+        }
+
+        if (minimumTotal > requestedTotal) {
+            throw new RuntimeException("各题型最低数量之和超过了总题数，无法组卷");
+        }
+
+        int totalAvailable = pool.values().stream().mapToInt(List::size).sum();
+        if (totalAvailable < requestedTotal) {
+            throw new RuntimeException("题库可用题目不足，无法凑满 " + requestedTotal + " 道题");
+        }
+
+        Map<Integer, Integer> targetCounts = new LinkedHashMap<>(minimumTypeCounts);
+        int remaining = requestedTotal - minimumTotal;
+        if (remaining == 0) {
+            return targetCounts;
+        }
+
+        List<Integer> typeOrder = buildTypeOrder(request, pool);
+        if (typeOrder.isEmpty()) {
+            throw new RuntimeException("未找到可用题型，无法组卷");
+        }
+
+        while (remaining > 0) {
+            boolean allocated = false;
+            for (Integer type : typeOrder) {
+                int current = targetCounts.getOrDefault(type, 0);
+                int available = pool.getOrDefault(type, Collections.emptyList()).size();
+                if (available <= current) {
+                    continue;
+                }
+                targetCounts.put(type, current + 1);
+                remaining--;
+                allocated = true;
+                if (remaining == 0) {
+                    break;
+                }
+            }
+
+            if (!allocated) {
+                throw new RuntimeException("题库可用题目不足，无法补齐到 " + requestedTotal + " 道题");
+            }
+        }
+
+        return targetCounts;
+    }
+
+    private List<Integer> buildTypeOrder(AutoGenerateRequest request, Map<Integer, List<Question>> pool) {
+        List<Integer> typeOrder = new ArrayList<>();
+        Set<Integer> addedTypes = new HashSet<>();
+
+        if (request.getTypeConfigs() != null) {
+            for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
+                if (config == null || config.getType() == null) {
+                    continue;
+                }
+                if (addedTypes.add(config.getType())) {
+                    typeOrder.add(config.getType());
+                }
+            }
+        }
+
+        for (Integer type : pool.keySet()) {
+            if (addedTypes.add(type)) {
+                typeOrder.add(type);
+            }
+        }
+
+        return typeOrder;
+    }
+
+    private Map<Integer, Integer> normalizeTypeCounts(AutoGenerateRequest request) {
+        Map<Integer, Integer> counts = new LinkedHashMap<>();
+        if (request.getTypeConfigs() == null) {
+            return counts;
+        }
+
+        for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
+            if (config == null || config.getType() == null || config.getCount() == null || config.getCount() <= 0) {
+                continue;
+            }
+            counts.merge(config.getType(), config.getCount(), Integer::sum);
+        }
+        return counts;
+    }
+
+    private void validateKnowledgeCoverage(AutoGenerateRequest request, List<Question> pool) {
+        if (request.getKnowledgePointRequirements() == null || request.getKnowledgePointRequirements().isEmpty()) {
+            return;
+        }
+
+        Map<String, Long> knowledgePointCounts = pool.stream()
+                .filter(Objects::nonNull)
+                .filter(question -> question.getCategory() != null)
+                .collect(Collectors.groupingBy(Question::getCategory, Collectors.counting()));
+
+        for (Map.Entry<String, Integer> entry : request.getKnowledgePointRequirements().entrySet()) {
+            long actualCount = knowledgePointCounts.getOrDefault(entry.getKey(), 0L);
+            if (actualCount < entry.getValue()) {
+                throw new RuntimeException("题库中[" + entry.getKey() + "]类的题目数量不足 (需要 " + entry.getValue() + ", 实际 " + actualCount + ")");
+            }
         }
     }
 
-    private double calculateDifficultyDeviation(Chromosome chrom, AutoGenerateRequest request) {
-        if (request.getDifficulty() == null) return 0.0;
-        double avgDiff = chrom.getQuestions().stream()
-                .mapToInt(Question::getDifficulty)
-                .average().orElse(0.0);
-        return Math.abs(avgDiff - request.getDifficulty());
+    private void validateTypeAvailability(Map<Integer, Integer> targetCounts, Map<Integer, List<Question>> pool) {
+        for (Map.Entry<Integer, Integer> entry : targetCounts.entrySet()) {
+            int actualCount = pool.getOrDefault(entry.getKey(), Collections.emptyList()).size();
+            if (actualCount < entry.getValue()) {
+                throw new RuntimeException("题库中" + getTypeName(entry.getKey()) + "的题目数量不足 (需要 " + entry.getValue() + ", 实际 " + actualCount + ")");
+            }
+        }
     }
 
-    private double calculateKnowledgeCoverage(Chromosome chrom, AutoGenerateRequest request) {
-        if (request.getKnowledgePointRequirements() == null || request.getKnowledgePointRequirements().isEmpty()) return 0.0;
-        
-        Set<String> coveredPoints = chrom.getQuestions().stream()
-                .map(Question::getCategory) // 假设 Category 对应知识点
+    private void calculateFitness(List<Chromosome> population, AutoGenerateRequest request, Map<Integer, Integer> targetCounts) {
+        AutoGenerateRequest.Weights weights = request.getWeights() != null ? request.getWeights() : new AutoGenerateRequest.Weights();
+
+        double difficultyWeight = weights.getDifficultyWeight() != null ? weights.getDifficultyWeight() : 0.25;
+        double coverageWeight = weights.getCoverageWeight() != null ? weights.getCoverageWeight() : 0.25;
+        double typeRatioWeight = weights.getTypeRatioWeight() != null ? weights.getTypeRatioWeight() : 0.25;
+        double scoreWeight = weights.getScoreWeight() != null ? weights.getScoreWeight() : 0.25;
+
+        for (Chromosome chromosome : population) {
+            double difficultyError = calculateDifficultyDeviation(chromosome, request);
+            double coverageError = calculateKnowledgeCoverage(chromosome, request);
+            double typeRatioError = calculateTypeRatioError(chromosome, targetCounts);
+            double scoreError = calculateScoreError(chromosome, request);
+            double penalty = calculatePenalty(chromosome, request, targetCounts);
+
+            double weightedError =
+                    difficultyWeight * difficultyError +
+                    coverageWeight * coverageError +
+                    typeRatioWeight * typeRatioError +
+                    scoreWeight * scoreError +
+                    penalty;
+
+            chromosome.setFitness(100.0 / (1.0 + weightedError));
+            chromosome.setError(weightedError);
+        }
+    }
+
+    private double calculateDifficultyDeviation(Chromosome chromosome, AutoGenerateRequest request) {
+        if (request.getDifficulty() == null) {
+            return 0.0;
+        }
+        double avgDifficulty = chromosome.getQuestions().stream()
+                .map(Question::getDifficulty)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        
-        long requiredPointsCount = request.getKnowledgePointRequirements().size();
-        long coveredCount = request.getKnowledgePointRequirements().keySet().stream()
-                .filter(coveredPoints::contains)
-                .count();
-        
-        return 1.0 - ((double) coveredCount / requiredPointsCount);
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0.0);
+        return Math.abs(avgDifficulty - request.getDifficulty());
     }
 
-    private double calculateTypeRatioError(Chromosome chrom, AutoGenerateRequest request) {
-        // 简单实现：由于初始化和变异都尽量保持题型数量，这里误差通常为0
-        // 如果变异破坏了题型比例，这里会计算误差
-        Map<Integer, Long> currentCounts = chrom.getQuestions().stream()
-                .collect(Collectors.groupingBy(Question::getType, Collectors.counting()));
-        
+    private double calculateKnowledgeCoverage(Chromosome chromosome, AutoGenerateRequest request) {
+        if (request.getKnowledgePointRequirements() == null || request.getKnowledgePointRequirements().isEmpty()) {
+            return 0.0;
+        }
+
+        Map<String, Long> actualCounts = chromosome.getQuestions().stream()
+                .filter(question -> question.getCategory() != null)
+                .collect(Collectors.groupingBy(Question::getCategory, Collectors.counting()));
+
         double error = 0.0;
-        if (request.getTypeConfigs() != null) {
-            for (AutoGenerateRequest.TypeConfig config : request.getTypeConfigs()) {
-                long actual = currentCounts.getOrDefault(config.getType(), 0L);
-                error += Math.abs(actual - config.getCount());
+        for (Map.Entry<String, Integer> entry : request.getKnowledgePointRequirements().entrySet()) {
+            long actual = actualCounts.getOrDefault(entry.getKey(), 0L);
+            if (actual < entry.getValue()) {
+                error += (entry.getValue() - actual);
             }
         }
         return error;
     }
 
-    private double calculateScoreError(Chromosome chrom, AutoGenerateRequest request) {
-        if (request.getTotalScore() == null) return 0.0;
-        // 假设每题分值固定或从 TypeConfig 获取，这里简化为从请求配置计算目标分值
-        // 实际题目可能有自己的分值，这里需要确认 Question 是否有 score 字段。
-        // Question 实体没有 score 字段，分值通常在 ExamQuestionRelation 中。
-        // 我们假设 TypeConfig 定义了该类型题目的分值。
-        
-        int totalScore = 0;
-        Map<Integer, Integer> typeScores = request.getTypeConfigs().stream()
-                .collect(Collectors.toMap(AutoGenerateRequest.TypeConfig::getType, AutoGenerateRequest.TypeConfig::getScore));
-        
-        for (Question q : chrom.getQuestions()) {
-            totalScore += typeScores.getOrDefault(q.getType(), 2); // 默认2分
+    private double calculateTypeRatioError(Chromosome chromosome, Map<Integer, Integer> targetCounts) {
+        Map<Integer, Long> currentCounts = chromosome.getQuestions().stream()
+                .collect(Collectors.groupingBy(Question::getType, Collectors.counting()));
+
+        double error = 0.0;
+        for (Map.Entry<Integer, Integer> entry : targetCounts.entrySet()) {
+            long actual = currentCounts.getOrDefault(entry.getKey(), 0L);
+            error += Math.abs(actual - entry.getValue());
         }
-        
+        return error;
+    }
+
+    private double calculateScoreError(Chromosome chromosome, AutoGenerateRequest request) {
+        if (request.getTotalScore() == null || request.getTypeConfigs() == null || request.getTypeConfigs().isEmpty()) {
+            return 0.0;
+        }
+
+        Map<Integer, Integer> typeScores = request.getTypeConfigs().stream()
+                .filter(Objects::nonNull)
+                .filter(config -> config.getType() != null && config.getScore() != null)
+                .collect(Collectors.toMap(
+                        AutoGenerateRequest.TypeConfig::getType,
+                        AutoGenerateRequest.TypeConfig::getScore,
+                        (first, second) -> second
+                ));
+
+        if (typeScores.isEmpty()) {
+            return 0.0;
+        }
+
+        int totalScore = 0;
+        for (Question question : chromosome.getQuestions()) {
+            totalScore += typeScores.getOrDefault(question.getType(), 0);
+        }
         return Math.abs(totalScore - request.getTotalScore());
     }
 
-    private double calculatePenalty(Chromosome chrom, AutoGenerateRequest request) {
+    private double calculatePenalty(Chromosome chromosome, AutoGenerateRequest request, Map<Integer, Integer> targetCounts) {
         double penalty = 0.0;
-        
-        // 1. 重复题目罚分
+
         Set<Long> uniqueIds = new HashSet<>();
         int duplicates = 0;
-        for (Question q : chrom.getQuestions()) {
-            if (!uniqueIds.add(q.getId())) {
+        for (Question question : chromosome.getQuestions()) {
+            if (!uniqueIds.add(question.getId())) {
                 duplicates++;
             }
         }
         penalty += duplicates * 100;
-        
-        // 2. 必选题缺失罚分
-        if (request.getConstraints() != null && request.getConstraints().getMandatoryQuestionIds() != null) {
-            for (Long mid : request.getConstraints().getMandatoryQuestionIds()) {
-                boolean found = chrom.getQuestions().stream().anyMatch(q -> q.getId().equals(mid));
-                if (!found) penalty += 50;
+
+        int targetQuestionCount = targetCounts.values().stream().mapToInt(Integer::intValue).sum();
+        penalty += Math.abs(chromosome.getQuestions().size() - targetQuestionCount) * 100;
+
+        Map<Integer, Long> currentTypeCounts = chromosome.getQuestions().stream()
+                .collect(Collectors.groupingBy(Question::getType, Collectors.counting()));
+        for (Map.Entry<Integer, Integer> entry : targetCounts.entrySet()) {
+            long actual = currentTypeCounts.getOrDefault(entry.getKey(), 0L);
+            if (actual < entry.getValue()) {
+                penalty += (entry.getValue() - actual) * 100;
             }
         }
-        
-        // 3. 超时风险 (暂不实现，需要题目预估时间)
-        
+
+        if (request.getConstraints() != null && request.getConstraints().getMandatoryQuestionIds() != null) {
+            for (Long mandatoryId : request.getConstraints().getMandatoryQuestionIds()) {
+                boolean found = chromosome.getQuestions().stream().anyMatch(question -> question.getId().equals(mandatoryId));
+                if (!found) {
+                    penalty += 50;
+                }
+            }
+        }
+
         return penalty;
     }
 
     private Chromosome tournamentSelection(List<Chromosome> population) {
-        int k = 3;
+        int tournamentSize = 3;
         Chromosome best = null;
-        for (int i = 0; i < k; i++) {
-            Chromosome random = population.get(new Random().nextInt(population.size()));
-            if (best == null || random.getFitness() > best.getFitness()) {
-                best = random;
+        for (int i = 0; i < tournamentSize; i++) {
+            Chromosome randomChromosome = population.get(RANDOM.nextInt(population.size()));
+            if (best == null || randomChromosome.getFitness() > best.getFitness()) {
+                best = randomChromosome;
             }
         }
         return best;
     }
 
-    private Chromosome crossover(Chromosome p1, Chromosome p2, AutoGenerateRequest request) {
-        // 分段交叉：这里简化为单点交叉
-        List<Question> genes1 = p1.getQuestions();
-        List<Question> genes2 = p2.getQuestions();
-        int size = Math.min(genes1.size(), genes2.size());
-        
-        int point = new Random().nextInt(size);
-        List<Question> newGenes = new ArrayList<>();
-        newGenes.addAll(genes1.subList(0, point));
-        newGenes.addAll(genes2.subList(point, size));
-        
-        return new Chromosome(newGenes);
+    private Chromosome crossover(Chromosome parent1, Chromosome parent2, Map<Integer, Integer> targetCounts, Map<Integer, List<Question>> pool) {
+        return new Chromosome(buildChromosomeGenes(targetCounts, pool, parent1.getQuestions(), parent2.getQuestions()));
     }
 
-    private void mutate(Chromosome chrom, Map<Integer, List<Question>> pool, AutoGenerateRequest request) {
-        // 随机选择一个基因位进行替换
-        List<Question> genes = chrom.getQuestions();
-        int index = new Random().nextInt(genes.size());
-        Question original = genes.get(index);
-        
-        // 尝试用同类型的其他题目替换
-        List<Question> candidates = pool.get(original.getType());
-        if (candidates != null && !candidates.isEmpty()) {
-            Question replacement = candidates.get(new Random().nextInt(candidates.size()));
-            genes.set(index, replacement);
+    private void mutate(Chromosome chromosome, Map<Integer, List<Question>> pool) {
+        List<Question> genes = chromosome.getQuestions();
+        if (genes.isEmpty()) {
+            return;
         }
-    }
 
-    private void repair(Chromosome chrom, Map<Integer, List<Question>> pool, AutoGenerateRequest request) {
-        // 1. 去重
-        Set<Long> existingIds = new HashSet<>();
-        List<Question> genes = chrom.getQuestions();
-        for (int i = 0; i < genes.size(); i++) {
-            Question q = genes.get(i);
-            if (existingIds.contains(q.getId())) {
-                // 发现重复，尝试替换
-                List<Question> candidates = pool.get(q.getType());
-                if (candidates != null) {
-                    for (Question c : candidates) {
-                        if (!existingIds.contains(c.getId())) {
-                            genes.set(i, c);
-                            existingIds.add(c.getId());
-                            break;
-                        }
-                    }
-                }
-            } else {
-                existingIds.add(q.getId());
+        int index = RANDOM.nextInt(genes.size());
+        Question original = genes.get(index);
+        List<Question> candidates = new ArrayList<>(pool.getOrDefault(original.getType(), Collections.emptyList()));
+        Collections.shuffle(candidates);
+        for (Question replacement : candidates) {
+            if (!Objects.equals(replacement.getId(), original.getId())) {
+                genes.set(index, replacement);
+                return;
             }
         }
-        
-        // 2. 检查题型数量并修复 (略，假设交叉变异保持总数不变)
+    }
+
+    private void repair(Chromosome chromosome, Map<Integer, List<Question>> pool, Map<Integer, Integer> targetCounts) {
+        chromosome.setQuestions(buildChromosomeGenes(targetCounts, pool, chromosome.getQuestions(), null));
+    }
+
+    private List<Question> buildChromosomeGenes(
+            Map<Integer, Integer> targetCounts,
+            Map<Integer, List<Question>> pool,
+            List<Question> primarySource,
+            List<Question> secondarySource
+    ) {
+        List<Question> genes = new ArrayList<>();
+        Set<Long> usedIds = new HashSet<>();
+
+        for (Map.Entry<Integer, Integer> entry : targetCounts.entrySet()) {
+            Integer type = entry.getKey();
+            int targetCount = entry.getValue();
+            if (targetCount <= 0) {
+                continue;
+            }
+
+            List<Question> candidates = new ArrayList<>();
+            appendQuestionsByType(candidates, primarySource, type);
+            appendQuestionsByType(candidates, secondarySource, type);
+            Collections.shuffle(candidates);
+
+            int added = appendUniqueQuestions(genes, candidates, targetCount, usedIds);
+            if (added < targetCount) {
+                List<Question> poolCandidates = new ArrayList<>(pool.getOrDefault(type, Collections.emptyList()));
+                Collections.shuffle(poolCandidates);
+                added += appendUniqueQuestions(genes, poolCandidates, targetCount - added, usedIds);
+            }
+
+            if (added < targetCount) {
+                throw new RuntimeException("题库中" + getTypeName(type) + "的题目数量不足，无法满足组卷要求");
+            }
+        }
+
+        return genes;
+    }
+
+    private void appendQuestionsByType(List<Question> target, List<Question> source, Integer type) {
+        if (source == null || source.isEmpty()) {
+            return;
+        }
+        for (Question question : source) {
+            if (question != null && Objects.equals(question.getType(), type)) {
+                target.add(question);
+            }
+        }
+    }
+
+    private int appendUniqueQuestions(List<Question> target, List<Question> candidates, int limit, Set<Long> usedIds) {
+        int added = 0;
+        for (Question candidate : candidates) {
+            if (added >= limit) {
+                break;
+            }
+            if (candidate == null || candidate.getId() == null || usedIds.contains(candidate.getId())) {
+                continue;
+            }
+            target.add(candidate);
+            usedIds.add(candidate.getId());
+            added++;
+        }
+        return added;
+    }
+
+    private String getTypeName(Integer type) {
+        return TYPE_NAMES.getOrDefault(type, "题型" + type);
     }
 
     @Data
@@ -342,11 +474,11 @@ public class GeneticAlgorithm {
         private List<Question> questions;
         private double fitness;
         private double error;
-        
+
         public Chromosome(List<Question> questions) {
             this.questions = new ArrayList<>(questions);
         }
-        
+
         @Override
         public Chromosome clone() {
             try {

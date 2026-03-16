@@ -65,29 +65,28 @@ async function submitFeedback() {
   }
 }
 
-// 分组题目，将具有相同stemId的题目放在一起
+// 按题目原始顺序分组，将相同 stemId 的题目放在一起
 const groupedQuestionsByStem = computed(() => {
   const groups: any[] = []
   const stemMap: Record<number, any[]> = {}
-  
-  // 首先按stemId分组
+  const processedStemIds = new Set<number>()
+
   questions.value.forEach((q: any) => {
-    if (q.stemId) {
-      if (!stemMap[q.stemId]) {
-        stemMap[q.stemId] = []
-      }
-      stemMap[q.stemId].push(q)
-    } else {
-      // 没有stemId的题目单独一组
+    if (!q.stemId) {
       groups.push([q])
+      return
+    }
+
+    if (!stemMap[q.stemId]) {
+      stemMap[q.stemId] = questions.value.filter((item: any) => item.stemId === q.stemId)
+    }
+
+    if (!processedStemIds.has(q.stemId)) {
+      groups.push(stemMap[q.stemId])
+      processedStemIds.add(q.stemId)
     }
   })
-  
-  // 将stemId分组添加到groups中
-  Object.values(stemMap).forEach(group => {
-    groups.push(group)
-  })
-  
+
   return groups
 })
 
@@ -95,6 +94,41 @@ const currentGroup = computed(() => groupedQuestionsByStem.value[currentIdx.valu
 const currentQ = computed(() => {
   // 为了保持兼容性，返回当前组的第一个题目
   return currentGroup.value ? currentGroup.value[0] : null
+})
+const currentQuestionRange = computed(() => {
+  if (!currentGroup.value || currentGroup.value.length === 0) {
+    return ''
+  }
+
+  const indexes = currentGroup.value
+    .map((q: any) => questions.value.findIndex((item: any) => item.id === q.id) + 1)
+    .filter((index: number) => index > 0)
+
+  if (indexes.length === 0) {
+    return ''
+  }
+
+  const start = Math.min(...indexes)
+  const end = Math.max(...indexes)
+  return start === end
+    ? `第 ${start} / ${questions.value.length} 题`
+    : `第 ${start}-${end} / ${questions.value.length} 题`
+})
+
+const questionNavItems = computed(() => {
+  return questions.value.map((question: any, index: number) => {
+    const groupIndex = groupedQuestionsByStem.value.findIndex((group: any[]) =>
+      group.some((item: any) => item.id === question.id)
+    )
+
+    return {
+      questionId: question.id,
+      questionNumber: index + 1,
+      groupIndex,
+      filled: !!answers.value[question.id],
+      marked: !!marks.value[question.id]
+    }
+  })
 })
 
 const groupedQuestions = computed(() => {
@@ -601,18 +635,18 @@ onUnmounted(() => {
           
           <div class="grid">
             <div 
-              v-for="(group, idx) in groupedQuestionsByStem" 
-              :key="idx"
+              v-for="item in questionNavItems" 
+              :key="item.questionId"
               class="dot"
               :class="{ 
-                active: idx === currentIdx,
-                filled: group.some(q => answers[q.id]),
-                marked: group.some(q => marks[q.id])
+                active: item.groupIndex === currentIdx,
+                filled: item.filled,
+                marked: item.marked
               }"
-              @click="currentIdx = idx"
+              @click="item.groupIndex >= 0 && (currentIdx = item.groupIndex)"
             >
-              {{ idx + 1 }}
-              <div class="dot__mark" v-if="group.some(q => marks[q.id])" />
+              {{ item.questionNumber }}
+              <div class="dot__mark" v-if="item.marked" />
             </div>
           </div>
 
@@ -650,7 +684,7 @@ onUnmounted(() => {
           <div class="q-head">
             <el-tag size="small" effect="dark" type="primary">{{ currentQ.category || '未分类' }}</el-tag>
             <el-tag size="small" effect="dark">{{ currentQ.type === 2 ? '多选题' : '单选题' }}</el-tag>
-            <span class="q-idx">第 {{ currentIdx + 1 }} / {{ groupedQuestionsByStem.length }} 组</span>
+            <span class="q-idx">{{ currentQuestionRange || `第 ${currentIdx + 1} / ${groupedQuestionsByStem.length} 组` }}</span>
             <el-button 
               size="small" 
               :type="marks[currentQ.id] ? 'warning' : 'default'" 
