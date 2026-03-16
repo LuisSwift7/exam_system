@@ -93,7 +93,12 @@ async function logout() {
   await router.replace('/login')
 }
 
+function hasResultAvailable(item: any) {
+  return item.studentStatus === 1 || (item.studentStatus === 2 && !!item.recordId)
+}
+
 function getStatusTag(item: any) {
+  if (hasResultAvailable(item)) return { type: 'success', text: '已完成' }
   if (item.studentStatus === 1) return { type: 'success', text: '已完成' }
   if (item.studentStatus === 0) return { type: 'warning', text: '答题中' }
   if (item.studentStatus === 2) return { type: 'danger', text: '已结束' }
@@ -109,7 +114,7 @@ function getStatusTag(item: any) {
 }
 
 const handleExamClick = (item: any) => {
-  if (item.studentStatus === 1) {
+  if (hasResultAvailable(item)) {
     router.push(`/student/exam-result/${item.recordId}`)
   } else if (item.studentStatus === 0) {
     router.push(`/student/exam/${item.id}/taking`)
@@ -119,6 +124,7 @@ const handleExamClick = (item: any) => {
 }
 
 const getBtnText = (item: any) => {
+  if (hasResultAvailable(item)) return '查看结果'
   if (item.studentStatus === 1) return '查看结果'
   if (item.studentStatus === 0) return '继续考试'
   if (item.studentStatus === 2) return '已结束'
@@ -134,6 +140,7 @@ const getBtnText = (item: any) => {
 }
 
 function isExamDisabled(item: any) {
+  if (hasResultAvailable(item)) return false
   if (item.studentStatus === 1 || item.studentStatus === 0) return false
   if (item.studentStatus === 2) return true
   

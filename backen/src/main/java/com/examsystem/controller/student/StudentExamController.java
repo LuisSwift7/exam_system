@@ -49,23 +49,17 @@ public class StudentExamController {
             BeanUtils.copyProperties(e, res);
             
             ExamRecord record = takingService.getRecord(e.getId(), user.getUserId());
+            LocalDateTime now = LocalDateTime.now();
             if (record != null) {
-                // Check if exam has ended
-                LocalDateTime now = LocalDateTime.now();
-                if (e.getEndTime() != null && now.isAfter(e.getEndTime())) {
-                    // Exam has ended, update record status if still in progress
-                    if (record.getStatus() == 0) {
-                        record.setStatus(2); // Set to ended
-                        takingService.updateRecordStatus(record.getId(), 2);
-                    }
-                    res.setStudentStatus(2);
-                } else {
-                    res.setStudentStatus(record.getStatus());
+                if (takingService.hasExamEnded(e) && record.getStatus() != null && record.getStatus() != 1) {
+                    takingService.submitExam(record.getId());
+                    record = takingService.getRecord(e.getId(), user.getUserId());
                 }
+
+                res.setStudentStatus(record.getStatus());
                 res.setRecordId(record.getId());
             } else {
                 // No record, check if exam has ended
-                LocalDateTime now = LocalDateTime.now();
                 if (e.getEndTime() != null && now.isAfter(e.getEndTime())) {
                     res.setStudentStatus(2); // Exam ended
                 } else if (e.getStartTime() != null && now.isBefore(e.getStartTime())) {

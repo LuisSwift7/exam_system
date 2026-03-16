@@ -7,6 +7,6 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class StudentExamResponse extends Exam {
-    private Integer studentStatus; // -1: Not Started, 0: In Progress, 1: Completed
+    private Integer studentStatus; // -1: Not Started, 0: In Progress, 1: Completed, 2: Ended
     private Long recordId;
 }

@@ -63,12 +63,23 @@ public class ExamTakingService {
         return examMapper.selectById(examId);
     }
 
+    public boolean hasExamEnded(Exam exam) {
+        return exam != null
+                && exam.getEndTime() != null
+                && LocalDateTime.now().isAfter(exam.getEndTime());
+    }
+
     public ExamResultResponse getExamResult(Long recordId) {
         ExamRecord record = examRecordMapper.selectById(recordId);
         if (record == null) throw new BizException(4004, "记录不存在");
-        if (record.getStatus() == 0) throw new BizException(4003, "考试未完成，无法查看结果");
 
         Exam exam = examMapper.selectById(record.getExamId());
+        if (exam == null) throw new BizException(4001, "考试不存在");
+        if (record.getStatus() == 0 && hasExamEnded(exam)) {
+            submitExam(recordId);
+            record = examRecordMapper.selectById(recordId);
+        }
+        if (record.getStatus() == 0) throw new BizException(4003, "考试未完成，无法查看结果");
 
         List<ExamAnswer> answers = examAnswerMapper.selectList(new LambdaQueryWrapper<ExamAnswer>()
                 .eq(ExamAnswer::getRecordId, recordId));
