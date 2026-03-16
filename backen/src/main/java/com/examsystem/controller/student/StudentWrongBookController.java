@@ -31,6 +31,12 @@ public class StudentWrongBookController {
         return ApiResponse.ok(null);
     }
 
+    @PutMapping("/{id}/note")
+    public ApiResponse<Void> updateNote(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        wrongBookService.updateNote(id, body.get("note"));
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/stats")
     public ApiResponse<WrongBookService.WrongBookStats> getStats() {
         return ApiResponse.ok(wrongBookService.getStats());

@@ -23,33 +23,62 @@
                 v-for="notification in notifications"
                 :key="notification.id"
                 :class="['notification-item', { 'unread': !notification.isRead }]"
-                @click="handleNotificationClick"
+                @click="openNotificationDetail(notification)"
               >
                 <div class="notification-content">
                   <h4 class="notification-title">{{ notification.title }}</h4>
-                  <p class="notification-message" v-if="notification.type === 'exam_published'" v-html="formatExamNotification(notification)"></p>
-                  <p class="notification-message" v-else>{{ notification.content }}</p>
+                  <p class="notification-message">{{ notification.content }}</p>
                   <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
                 </div>
-                <el-button
-                  type="text"
-                  size="small"
-                  class="mark-read-btn"
-                  @click.stop="markAsRead(notification.id)"
-                >
-                  {{ notification.isRead ? '已读' : '标记已读' }}
-                </el-button>
+                <div class="notification-actions">
+                  <el-button type="text" size="small" class="detail-btn" @click.stop="openNotificationDetail(notification)">
+                    查看详情
+                  </el-button>
+                  <el-button
+                    type="text"
+                    size="small"
+                    class="mark-read-btn"
+                    @click.stop="markAsRead(notification.id)"
+                  >
+                    {{ notification.isRead ? '已读' : '标记已读' }}
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </template>
     </el-dropdown>
+
+    <el-dialog v-model="detailVisible" title="通知详情" width="520px" append-to-body>
+      <div v-loading="detailLoading" class="detail-dialog">
+        <template v-if="currentNotification">
+          <div class="detail-title">{{ currentNotification.title }}</div>
+          <div class="detail-meta">
+            <span>{{ currentNotification.isRead ? '已读' : '未读' }}</span>
+            <span>{{ formatTime(currentNotification.createdAt) }}</span>
+          </div>
+          <div class="detail-content">{{ currentNotification.content }}</div>
+        </template>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="detailVisible = false">关闭</el-button>
+          <el-button
+            v-if="currentNotification?.type === 'exam_published' && currentNotification?.relatedId"
+            type="primary"
+            @click="navigateToExam(currentNotification.relatedId)"
+          >
+            查看考试
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { http } from '../api/http'
@@ -58,6 +87,9 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const notifications = ref<any[]>([])
 const unreadCount = ref(0)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const currentNotification = ref<any | null>(null)
 
 async function fetchNotifications() {
   try {
@@ -91,6 +123,27 @@ async function markAsRead(id: number) {
   }
 }
 
+async function openNotificationDetail(notification: any) {
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    const res = await http.get(`/api/notifications/${notification.id}`)
+    currentNotification.value = res.data.data || notification
+    if (!notification.isRead) {
+      await markAsRead(notification.id)
+      notification.isRead = true
+      if (currentNotification.value) {
+        currentNotification.value.isRead = true
+      }
+    }
+  } catch (e: any) {
+    currentNotification.value = notification
+    ElMessage.error(e?.message || '获取通知详情失败')
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 async function markAllAsRead() {
   try {
     await http.put('/api/notifications/read-all')
@@ -115,6 +168,7 @@ function handleDropdownVisibleChange(visible: boolean) {
 }
 
 function navigateToExam(examId: number) {
+  detailVisible.value = false
   router.push(`/student/exam/${examId}`)
 }
 
@@ -134,17 +188,6 @@ function formatTime(time: string) {
     hour: '2-digit',
     minute: '2-digit'
   })
-}
-
-// 监听点击事件，处理试卷链接的点击
-function handleNotificationClick(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  if (target.classList.contains('exam-link')) {
-    const examId = target.getAttribute('data-exam-id')
-    if (examId) {
-      router.push(`/student/exam/${examId}`)
-    }
-  }
 }
 
 onMounted(() => {
@@ -254,6 +297,13 @@ onMounted(() => {
   margin-right: 12px;
 }
 
+.notification-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .notification-title {
   font-size: 14px;
   font-weight: 600;
@@ -278,6 +328,38 @@ onMounted(() => {
   color: #10d4a6;
   padding: 0;
   margin-left: 8px;
+}
+
+.detail-btn {
+  font-size: 12px;
+  color: #f59e0b;
+  padding: 0;
+}
+
+.detail-dialog {
+  min-height: 120px;
+}
+
+.detail-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1e23;
+  margin-bottom: 12px;
+}
+
+.detail-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.detail-content {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #334155;
+  white-space: pre-wrap;
 }
 
 .exam-link {

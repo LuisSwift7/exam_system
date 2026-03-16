@@ -24,7 +24,8 @@ public class WrongBook {
     // For simplicity, maybe just track how many times practiced. 
     // The requirement says "record practice times and correct rate". 
     // So maybe add "practiceCorrectCount".
-    private Integer practiceCorrectCount; 
+    private Integer practiceCorrectCount;
+    private String note;
 
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

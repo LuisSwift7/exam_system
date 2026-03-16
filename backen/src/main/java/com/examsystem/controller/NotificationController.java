@@ -29,6 +29,12 @@ public class NotificationController {
         return ApiResponse.ok(notifications);
     }
 
+    @GetMapping("/{id}")
+    public ApiResponse<Notification> getNotificationDetail(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Notification notification = notificationService.getNotificationDetail(userPrincipal.getUserId(), id);
+        return ApiResponse.ok(notification);
+    }
+
     @GetMapping("/unread")
     public ApiResponse<List<Notification>> getUnreadNotifications(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         List<Notification> notifications = notificationService.getUnreadNotificationsByUserId(userPrincipal.getUserId());

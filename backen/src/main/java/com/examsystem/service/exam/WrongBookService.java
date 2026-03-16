@@ -28,8 +28,12 @@ public class WrongBookService {
     private final WrongBookMapper wrongBookMapper;
     private final QuestionMapper questionMapper;
 
+    private Long currentUserId() {
+        return ((UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUserId();
+    }
+
     public IPage<WrongBookVo> getWrongQuestions(int page, int size, String keyword, Integer type) {
-        Long userId = ((UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUserId();
+        Long userId = currentUserId();
         
         Page<WrongBook> p = new Page<>(page, size);
         
@@ -88,8 +92,10 @@ public class WrongBookService {
 
     public void practice(Long id, boolean correct) {
         WrongBook wb = wrongBookMapper.selectById(id);
+        Long userId = currentUserId();
         if (wb == null) throw new BizException(404, "记录不存在");
         
+        if (!wb.getStudentId().equals(userId)) throw new BizException(403, "无权操作该错题记录");
         wb.setPracticeCount(wb.getPracticeCount() + 1);
         if (correct) {
             wb.setPracticeCorrectCount(wb.getPracticeCorrectCount() + 1);
@@ -97,9 +103,20 @@ public class WrongBookService {
         wb.setUpdateTime(LocalDateTime.now());
         wrongBookMapper.updateById(wb);
     }
+
+    public void updateNote(Long id, String note) {
+        WrongBook wb = wrongBookMapper.selectById(id);
+        Long userId = currentUserId();
+        if (wb == null) throw new BizException(404, "记录不存在");
+        if (!wb.getStudentId().equals(userId)) throw new BizException(403, "无权操作该错题记录");
+
+        wb.setNote(note);
+        wb.setUpdateTime(LocalDateTime.now());
+        wrongBookMapper.updateById(wb);
+    }
     
     public WrongBookStats getStats() {
-        Long userId = ((UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUserId();
+        Long userId = currentUserId();
         
         List<WrongBook> list = wrongBookMapper.selectList(new LambdaQueryWrapper<WrongBook>().eq(WrongBook::getStudentId, userId));
         

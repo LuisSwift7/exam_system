@@ -8,6 +8,7 @@ export interface WrongBookItem {
   wrongCount: number
   practiceCount: number
   practiceCorrectCount: number
+  note?: string
   createTime: string
   updateTime: string
   // Question details
@@ -31,6 +32,9 @@ export const wrongBookApi = {
   
   practice: (id: number, correct: boolean) =>
     http.post(`/api/student/wrong-book/${id}/practice`, { correct }),
+
+  updateNote: (id: number, note: string) =>
+    http.put(`/api/student/wrong-book/${id}/note`, { note }),
   
   getStats: () =>
     http.get('/api/student/wrong-book/stats'),

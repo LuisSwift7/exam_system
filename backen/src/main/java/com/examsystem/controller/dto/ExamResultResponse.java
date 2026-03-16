@@ -14,6 +14,7 @@ public class ExamResultResponse {
     private Integer totalScore;
     private List<QuestionResult> questions;
     private List<CategoryStat> categoryStats;
+    private RankingInfo ranking;
 
     @Data
     public static class QuestionResult {
@@ -38,5 +39,25 @@ public class ExamResultResponse {
         private Integer correctCount;
         private Integer score;
         private Double accuracyRate;
+    }
+
+    @Data
+    public static class RankingInfo {
+        private Long classId;
+        private String className;
+        private Integer myRank;
+        private Integer participantCount;
+        private Integer classStudentCount;
+        private List<RankingItem> leaderboard;
+    }
+
+    @Data
+    public static class RankingItem {
+        private Integer rank;
+        private Long studentId;
+        private String studentName;
+        private Integer score;
+        private String submitTime;
+        private Boolean currentStudent;
     }
 }

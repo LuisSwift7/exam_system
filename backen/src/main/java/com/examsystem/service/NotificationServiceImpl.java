@@ -33,6 +33,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public Notification getNotificationDetail(Long userId, Long id) {
+        return notificationMapper.findByIdAndUserId(id, userId);
+    }
+
+    @Override
     public List<Notification> getUnreadNotificationsByUserId(Long userId) {
         return notificationMapper.findUnreadByUserId(userId);
     }

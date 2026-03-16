@@ -6,6 +6,7 @@ import java.util.List;
 public interface NotificationService {
     void createNotification(Long userId, String type, String title, String content, Long relatedId);
     List<Notification> getNotificationsByUserId(Long userId);
+    Notification getNotificationDetail(Long userId, Long id);
     List<Notification> getUnreadNotificationsByUserId(Long userId);
     void markAsRead(Long id);
     void markAllAsRead(Long userId);

@@ -10,6 +10,7 @@ import java.util.List;
 public interface NotificationMapper {
     void insert(Notification notification);
     List<Notification> findByUserId(@Param("userId") Long userId);
+    Notification findByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
     List<Notification> findUnreadByUserId(@Param("userId") Long userId);
     void markAsRead(@Param("id") Long id);
     void markAllAsRead(@Param("userId") Long userId);

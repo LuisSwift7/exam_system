@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { http } from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
 import { ElMessage } from 'element-plus'
-import { User, Check } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
 
 const auth = useAuthStore()
@@ -126,6 +125,10 @@ const formatOption = (opt: any) => {
   }
 }
 
+function formatDisplayTime(time?: string) {
+  return time ? time.replace('T', ' ') : '-'
+}
+
 async function logout() {
   auth.logout()
   await router.replace('/login')
@@ -183,6 +186,41 @@ onMounted(() => {
             <div class="info-item">
               <span class="label">试卷总分</span>
               <span class="value">{{ result.totalScore }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ranking-section" v-if="result.ranking">
+          <div class="ranking-card">
+            <div class="ranking-head">
+              <div>
+                <div class="ranking-title">班级排名</div>
+                <div class="ranking-subtitle">{{ result.ranking.className }}</div>
+              </div>
+              <div class="ranking-badge">第 {{ result.ranking.myRank || '-' }} 名</div>
+            </div>
+            <div class="ranking-summary">
+              <div class="ranking-summary-item">
+                <span class="summary-label">参与排名人数</span>
+                <span class="summary-value">{{ result.ranking.participantCount }}</span>
+              </div>
+            </div>
+            <div class="ranking-list" v-if="result.ranking.leaderboard?.length">
+              <div
+                v-for="item in result.ranking.leaderboard"
+                :key="item.studentId"
+                class="ranking-item"
+                :class="{ current: item.currentStudent }"
+              >
+                <div class="ranking-left">
+                  <span class="ranking-rank">#{{ item.rank }}</span>
+                  <span class="ranking-name">{{ item.studentName }}</span>
+                </div>
+                <div class="ranking-right">
+                  <span class="ranking-score">{{ item.score ?? 0 }}分</span>
+                  <span class="ranking-time">{{ formatDisplayTime(item.submitTime) }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -400,6 +438,122 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 32px;
+}
+
+.ranking-section {
+  margin-bottom: 32px;
+}
+
+.ranking-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.ranking-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ranking-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1e23;
+}
+
+.ranking-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ranking-badge {
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(16, 212, 166, 0.12);
+  color: #0f766e;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ranking-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ranking-summary-item {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+}
+
+.summary-label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.summary-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a1e23;
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ranking-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fbfbf9;
+  border: 1px solid #ececec;
+}
+
+.ranking-item.current {
+  border-color: rgba(16, 212, 166, 0.35);
+  background: #f0fdf9;
+}
+
+.ranking-left,
+.ranking-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ranking-rank {
+  font-weight: 800;
+  color: #0f766e;
+}
+
+.ranking-name {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.ranking-score {
+  color: #111827;
+  font-weight: 700;
+}
+
+.ranking-time {
+  font-size: 12px;
+  color: #64748b;
 }
 
 .category-stats {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { ElMessage } from 'element-plus'
 import { wrongBookApi, type WrongBookItem, type WrongBookStats } from '../../api/wrongBook'
@@ -34,6 +34,8 @@ const userAnswers = ref<string[]>([])
 const showResult = ref(false)
 const isCorrect = ref(false)
 const teacherReview = ref<any>(null)
+const noteDraft = ref('')
+const savingNote = ref(false)
 
 // Feedback
 const feedbackDialogVisible = ref(false)
@@ -112,6 +114,7 @@ function startPractice(item: WrongBookItem) {
   userAnswers.value = []
   showResult.value = false
   practiceVisible.value = true
+  noteDraft.value = item.note || ''
 }
 
 async function submitPractice() {
@@ -156,6 +159,26 @@ async function submitPractice() {
 function handleClosePractice() {
   practiceVisible.value = false
   currentQ.value = null
+  noteDraft.value = ''
+}
+
+async function saveNote() {
+  if (!currentQ.value) return
+
+  savingNote.value = true
+  try {
+    await wrongBookApi.updateNote(currentQ.value.id, noteDraft.value)
+    currentQ.value.note = noteDraft.value
+    const target = list.value.find(item => item.id === currentQ.value?.id)
+    if (target) {
+      target.note = noteDraft.value
+    }
+    ElMessage.success('笔记已保存')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '笔记保存失败')
+  } finally {
+    savingNote.value = false
+  }
 }
 
 function getOptionKey(opt: any) {
@@ -271,6 +294,7 @@ onMounted(() => {
               </div>
               <div class="card__body">
                 <p class="card__content">{{ item.questionContent }}</p>
+                <p v-if="item.note" class="card__note">笔记：{{ item.note }}</p>
               </div>
               <div class="card__foot">
                 <div class="card__stats">
@@ -355,6 +379,19 @@ onMounted(() => {
                  <span class="opt-val">{{ getOptionContent(opt) }}</span>
               </div>
             </template>
+          </div>
+
+          <div class="note-box">
+            <div class="note-head">
+              <span>我的笔记</span>
+              <el-button type="primary" link :loading="savingNote" @click="saveNote">保存笔记</el-button>
+            </div>
+            <el-input
+              v-model="noteDraft"
+              type="textarea"
+              :rows="4"
+              placeholder="记下这道题的易错点、技巧或提醒"
+            />
           </div>
 
           <div v-if="showResult" class="result-box" :class="{ success: isCorrect, error: !isCorrect }">
@@ -563,6 +600,17 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.card__note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .card__foot {
   display: flex;
   justify-content: space-between;
@@ -680,6 +728,24 @@ onMounted(() => {
 .result-analysis strong {
   font-weight: 700;
   color: #000;
+}
+
+.note-box {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fafaf7;
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1e23;
 }
 
 .review-box {
