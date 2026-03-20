@@ -1,0 +1,21 @@
+# Build artifacts
+backen/target/
+frontken/dist/
+frontken/dist-ssr/
+
+# Dependencies
+frontken/node_modules/
+.m2/
+
+# IDE files
+backen/.idea/
+.idea/
+.vscode/
+
+# Logs and temp files
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
