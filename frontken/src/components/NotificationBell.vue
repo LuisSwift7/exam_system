@@ -5,6 +5,7 @@
         <Icon icon="iconoir:bell" class="bell-icon" />
         <el-badge v-if="unreadCount > 0" :value="unreadCount" class="notification-badge" />
       </div>
+
       <template #dropdown>
         <div class="notification-dropdown">
           <div class="dropdown-header">
@@ -13,16 +14,18 @@
               全部标记已读
             </el-button>
           </div>
+
           <div class="dropdown-body">
             <div v-if="notifications.length === 0" class="empty-notifications">
               <Icon icon="iconoir:bell-off" class="empty-icon" />
               <p>暂无通知</p>
             </div>
+
             <div v-else class="notification-list">
               <div
                 v-for="notification in notifications"
                 :key="notification.id"
-                :class="['notification-item', { 'unread': !notification.isRead }]"
+                :class="['notification-item', { unread: !notification.isRead }]"
                 @click="openNotificationDetail(notification)"
               >
                 <div class="notification-content">
@@ -30,16 +33,12 @@
                   <p class="notification-message">{{ notification.content }}</p>
                   <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
                 </div>
+
                 <div class="notification-actions">
                   <el-button type="text" size="small" class="detail-btn" @click.stop="openNotificationDetail(notification)">
                     查看详情
                   </el-button>
-                  <el-button
-                    type="text"
-                    size="small"
-                    class="mark-read-btn"
-                    @click.stop="markAsRead(notification.id)"
-                  >
+                  <el-button type="text" size="small" class="mark-read-btn" @click.stop="markAsRead(notification.id)">
                     {{ notification.isRead ? '已读' : '标记已读' }}
                   </el-button>
                 </div>
@@ -61,15 +60,16 @@
           <div class="detail-content">{{ currentNotification.content }}</div>
         </template>
       </div>
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="detailVisible = false">关闭</el-button>
           <el-button
-            v-if="currentNotification?.type === 'exam_published' && currentNotification?.relatedId"
+            v-if="canNavigate(currentNotification)"
             type="primary"
-            @click="navigateToExam(currentNotification.relatedId)"
+            @click="navigateByNotification(currentNotification)"
           >
-            查看考试
+            {{ currentNotification?.type === 'review_published' ? '查看讲评' : '查看考试' }}
           </el-button>
         </span>
       </template>
@@ -78,11 +78,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
-import { http } from '../api/http'
 import { ElMessage } from 'element-plus'
+import { http } from '../api/http'
 
 const router = useRouter()
 const notifications = ref<any[]>([])
@@ -90,11 +90,12 @@ const unreadCount = ref(0)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const currentNotification = ref<any | null>(null)
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 async function fetchNotifications() {
   try {
     const res = await http.get('/api/notifications')
-    notifications.value = res.data.data
+    notifications.value = res.data.data || []
     updateUnreadCount()
   } catch (e: any) {
     console.error('获取通知失败:', e)
@@ -104,7 +105,7 @@ async function fetchNotifications() {
 async function fetchUnreadCount() {
   try {
     const res = await http.get('/api/notifications/unread/count')
-    unreadCount.value = res.data.data
+    unreadCount.value = res.data.data || 0
   } catch (e: any) {
     console.error('获取未读通知数失败:', e)
   }
@@ -113,7 +114,7 @@ async function fetchUnreadCount() {
 async function markAsRead(id: number) {
   try {
     await http.put(`/api/notifications/${id}/read`)
-    const notification = notifications.value.find(n => n.id === id)
+    const notification = notifications.value.find((item) => item.id === id)
     if (notification) {
       notification.isRead = true
       updateUnreadCount()
@@ -126,9 +127,11 @@ async function markAsRead(id: number) {
 async function openNotificationDetail(notification: any) {
   detailVisible.value = true
   detailLoading.value = true
+
   try {
     const res = await http.get(`/api/notifications/${notification.id}`)
     currentNotification.value = res.data.data || notification
+
     if (!notification.isRead) {
       await markAsRead(notification.id)
       notification.isRead = true
@@ -147,8 +150,8 @@ async function openNotificationDetail(notification: any) {
 async function markAllAsRead() {
   try {
     await http.put('/api/notifications/read-all')
-    notifications.value.forEach(n => {
-      n.isRead = true
+    notifications.value.forEach((item) => {
+      item.isRead = true
     })
     updateUnreadCount()
     ElMessage.success('全部标记已读成功')
@@ -158,7 +161,7 @@ async function markAllAsRead() {
 }
 
 function updateUnreadCount() {
-  unreadCount.value = notifications.value.filter(n => !n.isRead).length
+  unreadCount.value = notifications.value.filter((item) => !item.isRead).length
 }
 
 function handleDropdownVisibleChange(visible: boolean) {
@@ -167,22 +170,30 @@ function handleDropdownVisibleChange(visible: boolean) {
   }
 }
 
-function navigateToExam(examId: number) {
+function canNavigate(notification: any) {
+  if (!notification) return false
+  if (notification.type === 'review_published') return true
+  return notification.type === 'exam_published' && !!notification.relatedId
+}
+
+function navigateByNotification(notification: any) {
+  if (!notification) return
+
   detailVisible.value = false
-  router.push(`/student/exam/${examId}`)
+
+  if (notification.type === 'review_published') {
+    router.push('/student/reviews')
+    return
+  }
+
+  if (notification.type === 'exam_published' && notification.relatedId) {
+    router.push(`/student/exam/${notification.relatedId}`)
+  }
 }
 
-function formatExamNotification(notification: any) {
-  // 提取通知内容中的试卷名称和班级名称
-  const content = notification.content
-  // 简单处理，为试卷名称添加链接
-  return content.replace(/(.+的)(.+)(已发布，请及时查看)/, '$1<a href="javascript:void(0)" class="exam-link" data-exam-id="' + notification.relatedId + '">$2</a>$3')
-}
-
-function formatTime(time: string) {
+function formatTime(time?: string) {
   if (!time) return ''
-  const date = new Date(time)
-  return date.toLocaleString('zh-CN', {
+  return new Date(time).toLocaleString('zh-CN', {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -192,8 +203,13 @@ function formatTime(time: string) {
 
 onMounted(() => {
   fetchUnreadCount()
-  // 每30秒刷新一次未读通知数
-  setInterval(fetchUnreadCount, 30000)
+  refreshTimer = setInterval(fetchUnreadCount, 30000)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
 })
 </script>
 
@@ -206,8 +222,8 @@ onMounted(() => {
   position: relative;
   cursor: pointer;
   padding: 8px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  border-radius: 10px;
+  transition: background 0.2s ease;
 }
 
 .bell-wrapper:hover {
@@ -228,7 +244,7 @@ onMounted(() => {
 
 .notification-dropdown {
   width: 360px;
-  max-height: 400px;
+  max-height: 420px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -236,23 +252,23 @@ onMounted(() => {
 
 .dropdown-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .dropdown-header h3 {
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1a1e23;
-  margin: 0;
+  color: #1f2937;
 }
 
 .dropdown-body {
   flex: 1;
   overflow-y: auto;
-  max-height: 320px;
+  max-height: 340px;
 }
 
 .empty-notifications {
@@ -261,13 +277,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: #999;
+  color: #94a3b8;
 }
 
 .empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.5;
+  font-size: 44px;
+  margin-bottom: 12px;
 }
 
 .notification-list {
@@ -275,65 +290,51 @@ onMounted(() => {
 }
 
 .notification-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: all 0.3s ease;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  border-bottom: 1px solid #f0f2f5;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .notification-item:hover {
-  background: #f5f7fa;
+  background: #f8fafc;
 }
 
 .notification-item.unread {
-  background: #f0fdf4;
+  background: #fffaf2;
 }
 
 .notification-content {
   flex: 1;
-  margin-right: 12px;
+  min-width: 0;
+}
+
+.notification-title {
+  margin: 0 0 6px;
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.notification-message {
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.notification-time {
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .notification-actions {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
-}
-
-.notification-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1e23;
-  margin: 0 0 4px 0;
-}
-
-.notification-message {
-  font-size: 13px;
-  color: #666;
-  margin: 0 0 8px 0;
-  line-height: 1.4;
-}
-
-.notification-time {
-  font-size: 12px;
-  color: #999;
-}
-
-.mark-read-btn {
-  font-size: 12px;
-  color: #10d4a6;
-  padding: 0;
-  margin-left: 8px;
-}
-
-.detail-btn {
-  font-size: 12px;
-  color: #f59e0b;
-  padding: 0;
+  gap: 6px;
 }
 
 .detail-dialog {
@@ -341,53 +342,28 @@ onMounted(() => {
 }
 
 .detail-title {
+  color: #1f2937;
   font-size: 18px;
   font-weight: 700;
-  color: #1a1e23;
-  margin-bottom: 12px;
 }
 
 .detail-meta {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-top: 10px;
+  color: #94a3b8;
   font-size: 12px;
-  color: #64748b;
 }
 
 .detail-content {
-  font-size: 14px;
-  line-height: 1.7;
-  color: #334155;
+  margin-top: 16px;
+  color: #475569;
+  line-height: 1.8;
   white-space: pre-wrap;
 }
 
-.exam-link {
-  color: #409eff;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.exam-link:hover {
-  color: #66b1ff;
-}
-
-/* 滚动条样式 */
-.dropdown-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.dropdown-body::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.dropdown-body::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-.dropdown-body::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+.dialog-footer {
+  display: inline-flex;
+  gap: 10px;
 }
 </style>

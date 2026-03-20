@@ -174,6 +174,46 @@ async function openMyFeedbacks() {
   }
 }
 
+function formatFeedbackTime(value?: string) {
+  return value ? value.replace('T', ' ') : '-'
+}
+
+function formatFeedbackQuestionType(type?: number) {
+  const typeMap: Record<number, string> = {
+    1: '单选题',
+    2: '多选题',
+    3: '判断题'
+  }
+  return type ? typeMap[type] || '题目' : '题目'
+}
+
+function normalizeFeedbackOptions(options: any) {
+  if (Array.isArray(options)) {
+    return options.map((item: any) => ({
+      key: item?.key || '',
+      value: item?.value || '',
+      imageUrl: item?.imageUrl || ''
+    }))
+  }
+
+  if (typeof options === 'string') {
+    try {
+      const parsed = JSON.parse(options)
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: any) => ({
+          key: item?.key || '',
+          value: item?.value || '',
+          imageUrl: item?.imageUrl || ''
+        }))
+      }
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
 async function fetchDashboardOverview() {
   if (auth.me?.roleCode !== 'TEACHER') return
   dashboardLoading.value = true
@@ -264,6 +304,10 @@ onMounted(() => {
               <Icon icon="iconoir:chat-bubble" class="btn-icon" />
               <span>我的反馈</span>
             </button>
+            <button class="btn-wrong-book" style="margin-left: 12px; background: #fffaf2; color: #c26b18; border: 1px solid #f1cfaa" @click="$router.push('/student/reviews')">
+              <Icon icon="iconoir:page-search" class="btn-icon" />
+              <span>我的讲评</span>
+            </button>
             <img src="https://api.iconify.design/iconoir:graduation-cap.svg?color=%2310d4a6" class="welcome-icon" />
           </div>
         </div>
@@ -311,20 +355,38 @@ onMounted(() => {
         </div>
 
         <!-- Student Feedback Dialog -->
-        <el-dialog v-model="feedbackDialogVisible" title="我的反馈记录" width="600px">
+        <el-dialog v-model="feedbackDialogVisible" title="我的反馈记录" width="680px">
           <div v-loading="feedbackLoading" class="feedback-list">
             <el-empty v-if="myFeedbacks.length === 0" description="暂无反馈记录" />
             <div v-else v-for="item in myFeedbacks" :key="item.id" class="feedback-item">
               <div class="fb-head">
-                <span class="fb-time">{{ item.createTime?.replace('T', ' ') }}</span>
+                <span class="fb-time">{{ formatFeedbackTime(item.createTime) }}</span>
                 <el-tag size="small" :type="item.status === 1 ? 'success' : 'info'">{{ item.status === 1 ? '已回复' : '待处理' }}</el-tag>
+              </div>
+              <div v-if="item.question" class="fb-question">
+                <div class="fb-question-head">
+                  <span>{{ item.question.category || '未分类' }}</span>
+                  <span>{{ formatFeedbackQuestionType(item.question.type) }}</span>
+                </div>
+                <div class="fb-question-content">{{ item.question.content }}</div>
+                <div
+                  v-for="option in normalizeFeedbackOptions(item.question.options)"
+                  :key="`${item.id}-${option.key}`"
+                  class="fb-option"
+                >
+                  <span class="fb-option-key">{{ option.key }}</span>
+                  <div class="fb-option-body">
+                    <span>{{ option.value }}</span>
+                    <img v-if="option.imageUrl" :src="option.imageUrl" alt="选项配图" class="fb-option-image" />
+                  </div>
+                </div>
               </div>
               <div class="fb-content">
                 <strong>我的提问：</strong> {{ item.content }}
               </div>
               <div v-if="item.status === 1" class="fb-reply">
                 <strong>教师回复：</strong> {{ item.replyContent }}
-                <div class="reply-time">{{ item.replyTime?.replace('T', ' ') }}</div>
+                <div class="reply-time">{{ formatFeedbackTime(item.replyTime) }}</div>
               </div>
             </div>
           </div>
@@ -657,6 +719,65 @@ onMounted(() => {
   margin-bottom: 8px;
   font-size: 12px;
   color: #6b7280;
+}
+
+.fb-question {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fffef8;
+  border: 1px solid #ece5d4;
+}
+
+.fb-question-head {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #8b6d3b;
+}
+
+.fb-question-content {
+  color: #1f2937;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.fb-option {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #f0eadc;
+}
+
+.fb-option + .fb-option {
+  margin-top: 8px;
+}
+
+.fb-option-key {
+  width: 18px;
+  font-weight: 700;
+  color: #7a5a16;
+}
+
+.fb-option-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.fb-option-image {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  object-fit: contain;
 }
 
 .fb-content {
@@ -1014,6 +1135,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 32px;
+  gap: 20px;
 }
 
 .dash-welcome h1 {
@@ -1030,54 +1152,11 @@ onMounted(() => {
 }
 
 .quick-stats {
-  display: flex;
-  gap: 20px;
-}
-
-.stat-item {
-  background: #fff;
-  padding: 12px 20px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-  transition: all 0.2s;
-}
-
-.stat-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
-}
-
-.stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
+  display: none;
 }
 
 .bg-blue { background: rgba(64, 158, 255, 0.1); color: #409eff; }
 .bg-green { background: rgba(103, 194, 58, 0.1); color: #67c23a; }
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-label {
-  font-size: 14px;
-  font-weight: 700;
-  color: #333;
-}
-
-.stat-action {
-  font-size: 12px;
-  color: #999;
-}
 
 /* 数据概览 */
 .dashboard-overview {
@@ -1274,7 +1353,7 @@ onMounted(() => {
 }
 
 /* 颜色类 */
-.bg-purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.bg-purple { background: rgba(230, 183, 120, 0.18); color: #b7791f; }
 .bg-orange { background: rgba(255, 161, 22, 0.1); color: #ff9f1c; }
 
 /* Tabs */
@@ -1457,5 +1536,13 @@ onMounted(() => {
 .dashboard-header {
   position: relative;
   overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
 }
 </style>

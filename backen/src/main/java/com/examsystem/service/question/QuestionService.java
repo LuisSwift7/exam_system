@@ -23,7 +23,17 @@ public class QuestionService {
                 .orderByDesc(Question::getCreatedTime);
         
         if (StringUtils.hasText(keyword)) {
-            wrapper.like(Question::getContent, keyword);
+            String trimmedKeyword = keyword.trim();
+            wrapper.and(w -> {
+                w.like(Question::getContent, trimmedKeyword)
+                        .or()
+                        .like(Question::getAnalysis, trimmedKeyword)
+                        .or()
+                        .like(Question::getCategory, trimmedKeyword);
+                if (trimmedKeyword.matches("\\d+")) {
+                    w.or().eq(Question::getId, Long.parseLong(trimmedKeyword));
+                }
+            });
         }
         if (type != null) {
             wrapper.eq(Question::getType, type);

@@ -13,6 +13,8 @@ const recordId = route.params.recordId
 const result = ref<any>(null)
 const loading = ref(true)
 const reviews = ref<Record<number, any>>({})
+const examReview = ref<any>(null)
+const examReviewLoading = ref(false)
 
 // Feedback
 const feedbackDialogVisible = ref(false)
@@ -49,6 +51,9 @@ const fetchResult = async () => {
     const res = await http.get(`/api/student/exam-taking/${recordId}/result`)
     if (res.data.code === 0) {
       result.value = res.data.data
+      if (result.value?.exam?.id) {
+        fetchExamReview(result.value.exam.id)
+      }
       // Fetch reviews
       if (result.value.questions) {
         result.value.questions.forEach((q: any) => {
@@ -125,6 +130,18 @@ const formatOption = (opt: any) => {
   }
 }
 
+async function fetchExamReview(examId: number) {
+  examReviewLoading.value = true
+  try {
+    const res = await http.get(`/api/student/reviews/exam/${examId}`)
+    examReview.value = res.data.data
+  } catch (e) {
+    examReview.value = null
+  } finally {
+    examReviewLoading.value = false
+  }
+}
+
 function formatDisplayTime(time?: string) {
   return time ? time.replace('T', ' ') : '-'
 }
@@ -187,6 +204,39 @@ onMounted(() => {
               <span class="label">试卷总分</span>
               <span class="value">{{ result.totalScore }}</span>
             </div>
+          </div>
+        </div>
+
+        <div class="exam-review-section" v-if="examReview" v-loading="examReviewLoading">
+          <div class="exam-review-card">
+            <div class="exam-review-head">
+              <div>
+                <div class="exam-review-eyebrow">考试讲评</div>
+                <h3>{{ examReview.title }}</h3>
+              </div>
+              <el-button plain round @click="router.push(`/student/exam/${result.exam.id}`)">
+                <Icon icon="iconoir:open-in-window" class="btn-icon" />
+                打开讲评页
+              </el-button>
+            </div>
+
+            <div v-if="examReview.summary || examReview.content" class="exam-review-summary">
+              {{ examReview.summary || examReview.content }}
+            </div>
+
+            <div v-if="examReview.questionReviews?.length" class="exam-review-list">
+              <div
+                v-for="item in examReview.questionReviews"
+                :key="item.questionId"
+                class="exam-review-item"
+              >
+                <div class="exam-review-item-head">第 {{ item.questionNo || '?' }} 题</div>
+                <div class="exam-review-item-question">{{ item.questionContent || '题干暂缺' }}</div>
+                <div class="exam-review-item-content">{{ item.content }}</div>
+              </div>
+            </div>
+
+            <div class="exam-review-time">发布时间 {{ formatDisplayTime(examReview.createdAt) }}</div>
           </div>
         </div>
 
@@ -438,6 +488,93 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 32px;
+}
+
+.exam-review-section {
+  margin-bottom: 32px;
+}
+
+.exam-review-card {
+  padding: 24px;
+  border: 1px solid #eadfce;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 225, 188, 0.35), transparent 34%),
+    linear-gradient(180deg, #fffaf4 0%, #ffffff 100%);
+  box-shadow: 0 12px 36px rgba(148, 163, 184, 0.08);
+}
+
+.exam-review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.exam-review-eyebrow {
+  margin-bottom: 8px;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.exam-review-head h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.exam-review-summary {
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.exam-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.exam-review-item {
+  padding: 16px;
+  border: 1px solid #ece6db;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.exam-review-item-head {
+  color: #9a5a16;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exam-review-item-question {
+  margin-top: 8px;
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.exam-review-item-content {
+  margin-top: 10px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.exam-review-time {
+  margin-top: 16px;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: right;
 }
 
 .ranking-section {
@@ -859,6 +996,19 @@ onMounted(() => {
   color: #6b7280;
   margin-top: 8px;
   text-align: right;
+}
+
+@media (max-width: 760px) {
+  .result-header,
+  .exam-review-head,
+  .q-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .score-overview {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes slideUp {

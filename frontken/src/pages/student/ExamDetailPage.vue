@@ -97,7 +97,26 @@ onMounted(async () => {
             <h3>考试讲评</h3>
             <div class="review-card">
               <h4 class="review-title">{{ review.title }}</h4>
-              <div class="review-content">{{ review.content }}</div>
+              <div class="review-content" v-if="review.summary || review.content">
+                {{ review.summary || review.content }}
+              </div>
+              <div v-if="review.questionReviews?.length" class="review-question-list">
+                <div
+                  v-for="item in review.questionReviews"
+                  :key="item.questionId"
+                  class="review-question-item"
+                >
+                  <div class="review-question-head">
+                    <span>第 {{ item.questionNo || '?' }} 题</span>
+                  </div>
+                  <div class="review-question-content">
+                    {{ item.questionContent || '题干缺失' }}
+                  </div>
+                  <div class="review-question-comment">
+                    {{ item.content }}
+                  </div>
+                </div>
+              </div>
               <div class="review-time">发布时间：{{ new Date(review.createdAt).toLocaleString() }}</div>
             </div>
           </div>
@@ -227,6 +246,41 @@ onMounted(async () => {
   color: #555;
   line-height: 1.6;
   margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+
+.review-question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.review-question-item {
+  padding: 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+.review-question-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f766e;
+  margin-bottom: 8px;
+}
+
+.review-question-content {
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.review-question-comment {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
   white-space: pre-wrap;
 }
 

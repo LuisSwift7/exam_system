@@ -31,6 +31,12 @@ public class ReviewController {
         return ApiResponse.ok();
     }
 
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> deleteReview(@PathVariable Long id) {
+        reviewService.deleteReview(id);
+        return ApiResponse.ok();
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<Review> getReview(@PathVariable Long id) {
         Review review = reviewService.getReviewById(id);

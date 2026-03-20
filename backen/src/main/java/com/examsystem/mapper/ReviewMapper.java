@@ -10,6 +10,7 @@ import java.util.List;
 public interface ReviewMapper {
     void insert(Review review);
     void update(Review review);
+    void deleteById(@Param("id") Long id);
     Review findById(@Param("id") Long id);
     Review findByExamId(@Param("examId") Long examId);
     List<Review> findByTeacherId(@Param("teacherId") Long teacherId);

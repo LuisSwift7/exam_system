@@ -33,6 +33,7 @@ const stemForm = ref<any>({
 })
 
 const categories = ['常识判断', '言语理解', '数量关系', '判断推理', '资料分析']
+const filterKeyword = ref('')
 const filterCategory = ref('')
 
 const rules = {
@@ -256,6 +257,7 @@ async function fetchList() {
       params: {
         page: currentPage.value,
         size: pageSize.value,
+        keyword: filterKeyword.value.trim() || undefined,
         category: filterCategory.value || undefined
       }
     })
@@ -266,6 +268,23 @@ async function fetchList() {
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch() {
+  currentPage.value = 1
+  fetchList()
+}
+
+function handleResetFilters() {
+  filterKeyword.value = ''
+  filterCategory.value = ''
+  currentPage.value = 1
+  fetchList()
+}
+
+function handleCategoryChange() {
+  currentPage.value = 1
+  fetchList()
 }
 
 function handleSizeChange(val: number) {
@@ -435,6 +454,20 @@ onMounted(() => {
     <div class="panel__head">
       <h3>试题管理</h3>
       <div class="actions">
+        <el-input
+          v-model="filterKeyword"
+          class="search-input"
+          clearable
+          placeholder="搜索题干或解析"
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+        >
+          <template #prefix>
+            <Icon icon="iconoir:search" />
+          </template>
+        </el-input>
+        <el-button @click="handleSearch">搜索</el-button>
+        <el-button plain @click="handleResetFilters">重置</el-button>
         <el-button 
           type="danger" 
           plain 
@@ -443,7 +476,7 @@ onMounted(() => {
         >
           批量删除
         </el-button>
-        <el-select v-model="filterCategory" placeholder="按题库筛选" clearable style="width: 150px" @change="fetchList">
+        <el-select v-model="filterCategory" placeholder="按题库筛选" clearable style="width: 150px" @change="handleCategoryChange">
           <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
         </el-select>
         <el-button @click="importDialogVisible = true">
@@ -748,6 +781,12 @@ onMounted(() => {
 .actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.search-input {
+  width: 260px;
 }
 
 .parsed-list {
@@ -776,5 +815,22 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .panel__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .search-input {
+    width: 100%;
+  }
 }
 </style>

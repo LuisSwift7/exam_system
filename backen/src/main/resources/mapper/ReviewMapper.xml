@@ -8,12 +8,17 @@
 
     <update id="update" parameterType="com.examsystem.entity.Review">
         UPDATE review SET
+            exam_id = #{examId},
             title = #{title},
             content = #{content},
             status = #{status},
             updated_at = NOW()
         WHERE id = #{id}
     </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM review WHERE id = #{id}
+    </delete>
 
     <select id="findById" parameterType="java.lang.Long" resultType="com.examsystem.entity.Review">
         SELECT * FROM review WHERE id = #{id}

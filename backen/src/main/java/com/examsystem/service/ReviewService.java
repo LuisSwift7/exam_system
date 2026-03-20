@@ -6,8 +6,10 @@ import java.util.List;
 public interface ReviewService {
     void createReview(Review review);
     void updateReview(Review review);
+    void deleteReview(Long id);
     Review getReviewById(Long id);
     Review getReviewByExamId(Long examId);
+    List<Review> getPublishedReviewsByStudentId(Long studentId);
     List<Review> getReviewsByTeacherId(Long teacherId);
     List<Review> getAllReviews();
     void publishReview(Long id);
