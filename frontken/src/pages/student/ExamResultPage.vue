@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { http } from '../../api/http'
@@ -146,6 +146,16 @@ function formatDisplayTime(time?: string) {
   return time ? time.replace('T', ' ') : '-'
 }
 
+function openExamReviewPage() {
+  if (!result.value?.exam?.id) {
+    return
+  }
+  router.push({
+    path: '/student/reviews',
+    query: { examId: String(result.value.exam.id) }
+  })
+}
+
 async function logout() {
   auth.logout()
   await router.replace('/login')
@@ -214,10 +224,9 @@ onMounted(() => {
                 <div class="exam-review-eyebrow">考试讲评</div>
                 <h3>{{ examReview.title }}</h3>
               </div>
-              <el-button plain round @click="router.push(`/student/exam/${result.exam.id}`)">
+              <el-button plain round @click="openExamReviewPage">
                 <Icon icon="iconoir:open-in-window" class="btn-icon" />
-                打开讲评页
-              </el-button>
+                打开讲评页</el-button>
             </div>
 
             <div v-if="examReview.summary || examReview.content" class="exam-review-summary">
@@ -267,7 +276,7 @@ onMounted(() => {
                   <span class="ranking-name">{{ item.studentName }}</span>
                 </div>
                 <div class="ranking-right">
-                  <span class="ranking-score">{{ item.score ?? 0 }}分</span>
+                  <span class="ranking-score">{{ item.score ?? 0 }} 分</span>
                   <span class="ranking-time">{{ formatDisplayTime(item.submitTime) }}</span>
                 </div>
               </div>
@@ -280,7 +289,7 @@ onMounted(() => {
           <div class="stats-grid">
             <div v-for="stat in result.categoryStats" :key="stat.category" class="stat-card">
               <div class="stat-category">{{ stat.category }}</div>
-              <div class="stat-score">{{ stat.score }}分</div>
+              <div class="stat-score">{{ stat.score }} 分</div>
               <div class="stat-info">
                 <span>正确 {{ stat.correctCount }}/{{ stat.totalCount }}</span>
                 <span class="stat-rate">正确率 {{ (stat.accuracyRate * 100).toFixed(0) }}%</span>
@@ -306,7 +315,7 @@ onMounted(() => {
                   <Icon icon="iconoir:chat-bubble" style="margin-right: 4px" />
                   题目反馈
                 </el-button>
-                <span class="q-meta">第 {{ index + 1 }} 题 · {{ q.category || '未分类' }} · {{ q.type === 2 ? '多选题' : '单选题' }} · {{ q.score }}分</span>
+                <span class="q-meta">第 {{ index + 1 }} 题 · {{ q.category || '未分类' }} · {{ q.type === 2 ? '多选题' : '单选题' }} · {{ q.score }} 分</span>
               </div>
             </div>
             
@@ -1025,3 +1034,4 @@ onMounted(() => {
   to { opacity: 1; }
 }
 </style>
+

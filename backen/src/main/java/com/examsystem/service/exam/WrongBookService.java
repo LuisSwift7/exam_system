@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,7 +33,7 @@ public class WrongBookService {
         return ((UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUserId();
     }
 
-    public IPage<WrongBookVo> getWrongQuestions(int page, int size, String keyword, Integer type) {
+    public IPage<WrongBookVo> getWrongQuestions(int page, int size, String keyword, String category) {
         Long userId = currentUserId();
         
         Page<WrongBook> p = new Page<>(page, size);
@@ -47,10 +48,10 @@ public class WrongBookService {
         // 2. Query WrongBook with those Question IDs and userId.
         
         List<Long> questionIds = null;
-        if (StringUtils.hasText(keyword) || type != null) {
+        if (StringUtils.hasText(keyword) || StringUtils.hasText(category)) {
             LambdaQueryWrapper<Question> qWrapper = new LambdaQueryWrapper<>();
             if (StringUtils.hasText(keyword)) qWrapper.like(Question::getContent, keyword);
-            if (type != null) qWrapper.eq(Question::getType, type);
+            if (StringUtils.hasText(category)) qWrapper.eq(Question::getCategory, category);
             qWrapper.select(Question::getId);
             List<Object> ids = questionMapper.selectObjs(qWrapper);
             if (ids.isEmpty()) {
@@ -76,6 +77,7 @@ public class WrongBookService {
             if (q != null) {
                 vo.setQuestionContent(q.getContent());
                 vo.setQuestionType(q.getType());
+                vo.setQuestionCategory(q.getCategory());
                 vo.setQuestionOptions(q.getOptions());
                 vo.setQuestionAnswer(q.getAnswer());
                 vo.setQuestionAnalysis(q.getAnalysis());
@@ -134,8 +136,14 @@ public class WrongBookService {
         if (!list.isEmpty()) {
             List<Long> qIds = list.stream().map(WrongBook::getQuestionId).collect(Collectors.toList());
             List<Question> questions = questionMapper.selectBatchIds(qIds);
-            Map<Integer, Long> typeCount = questions.stream().collect(Collectors.groupingBy(Question::getType, Collectors.counting()));
-            stats.setTypeDistribution(typeCount);
+            Map<String, Long> categoryCount = questions.stream()
+                    .collect(Collectors.groupingBy(
+                            q -> StringUtils.hasText(q.getCategory()) ? q.getCategory() : "未分类",
+                            Collectors.counting()
+                    ));
+            stats.setCategoryDistribution(categoryCount);
+        } else {
+            stats.setCategoryDistribution(Collections.emptyMap());
         }
         
         return stats;
@@ -145,6 +153,7 @@ public class WrongBookService {
     public static class WrongBookVo extends WrongBook {
         private String questionContent;
         private Integer questionType;
+        private String questionCategory;
         private List<Option> questionOptions;
         private String questionAnswer;
         private String questionAnalysis;
@@ -155,6 +164,6 @@ public class WrongBookService {
         private Integer totalCount;
         private Integer practiceCount;
         private Double practiceAccuracy;
-        private Map<Integer, Long> typeDistribution;
+        private Map<String, Long> categoryDistribution;
     }
 }

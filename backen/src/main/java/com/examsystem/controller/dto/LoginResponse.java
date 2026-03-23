@@ -11,15 +11,6 @@ public class LoginResponse {
   private String tokenType;
   private long expiresIn;
   private long refreshTokenExpiresIn;
-  private UserView user;
-
-  @Data
-  @AllArgsConstructor
-  public static class UserView {
-    private Long id;
-    private String username;
-    private String realName;
-    private String roleCode;
-  }
+  private LoginUserView user;
 }
 

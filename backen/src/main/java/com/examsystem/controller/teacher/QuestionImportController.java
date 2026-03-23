@@ -23,16 +23,16 @@ public class QuestionImportController {
 
     @PostMapping("/import/pdf/parse")
     public ApiResponse<List<Question>> parsePdf(@RequestParam("file") MultipartFile file) throws IOException {
-        List<Question> questions = pdfImportService.parsePdf(file);
-        return ApiResponse.ok(questions);
+        return ApiResponse.ok(pdfImportService.parsePdf(file));
     }
 
     @PostMapping("/import/batch")
     public ApiResponse<Void> batchSave(@AuthenticationPrincipal UserPrincipal user, @RequestBody List<Question> questions) {
+        Long userId = user.getUserId();
         for (Question q : questions) {
-            q.setCreateBy(user.getUserId());
+            q.setCreateBy(userId);
             questionService.addQuestion(q);
         }
-        return ApiResponse.ok(null);
+        return ApiResponse.ok();
     }
 }

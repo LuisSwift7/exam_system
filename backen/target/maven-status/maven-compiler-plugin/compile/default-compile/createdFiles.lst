@@ -22,7 +22,6 @@ com\examsystem\entity\Class.class
 com\examsystem\controller\student\ExamWebSocketHandler$Base64MultipartFile.class
 com\examsystem\security\JwtAuthFilter.class
 com\examsystem\controller\TeacherController.class
-com\examsystem\controller\dto\LoginResponse$UserView.class
 com\examsystem\common\GlobalExceptionHandler.class
 com\examsystem\config\SecurityConfig.class
 com\examsystem\controller\teacher\TeacherStudentController.class
@@ -41,6 +40,7 @@ com\examsystem\controller\teacher\ReviewController.class
 com\examsystem\mapper\ClassMapper.class
 com\examsystem\service\StemService.class
 com\examsystem\controller\student\StudentFeedbackController.class
+com\examsystem\entity\Review$QuestionReviewItem.class
 com\examsystem\mapper\SysLogMapper.class
 com\examsystem\controller\teacher\TeacherStudentController$StudentRequest.class
 com\examsystem\entity\QuestionFeedback.class
@@ -53,6 +53,7 @@ com\examsystem\controller\StemController.class
 com\examsystem\mapper\ClassStudentMapper.class
 com\examsystem\entity\ExamAnswer.class
 com\examsystem\service\classroom\ClassServiceImpl.class
+com\examsystem\controller\dto\ExamResultResponse$RankingItem.class
 com\examsystem\mapper\StemMapper.class
 com\examsystem\service\auth\CaptchaService$CaptchaItem.class
 com\examsystem\entity\Question.class
@@ -80,6 +81,7 @@ com\examsystem\controller\student\StudentExamController.class
 com\examsystem\entity\SysUser.class
 com\examsystem\mapper\QuestionMapper.class
 com\examsystem\controller\teacher\TeacherClassController.class
+com\examsystem\controller\dto\LoginUserView.class
 com\examsystem\controller\teacher\TeacherExamController.class
 com\examsystem\service\auth\JwtService.class
 com\examsystem\mapper\ExamRecordMapper.class
@@ -101,6 +103,7 @@ com\examsystem\controller\admin\AdminTeacherController.class
 com\examsystem\controller\TeacherController$Activity.class
 com\examsystem\entity\ExamQuestionRelation.class
 com\examsystem\service\exam\ExamTakingService.class
+com\examsystem\service\ReviewServiceImpl$ReviewContentPayload.class
 com\examsystem\config\AppPropertiesConfig.class
 com\examsystem\controller\student\StudentFeedbackController$FeedbackRequest.class
 com\examsystem\security\UserPrincipal.class
@@ -128,4 +131,5 @@ com\examsystem\controller\admin\AdminController.class
 com\examsystem\config\CorsConfig.class
 com\examsystem\controller\teacher\TeacherExamController$ManualComposeRequest.class
 com\examsystem\service\NotificationServiceImpl.class
+com\examsystem\controller\dto\ExamResultResponse$RankingInfo.class
 com\examsystem\controller\student\ExamWebSocketHandler.class

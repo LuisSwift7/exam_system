@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const auth = useAuthStore()
+const categoryOptions = ['言语理解', '数量关系', '判断推理', '资料分析', '常识判断']
 
 // State
 const loading = ref(false)
@@ -17,13 +18,13 @@ const stats = ref<WrongBookStats>({
   totalCount: 0,
   practiceCount: 0,
   practiceAccuracy: 0,
-  typeDistribution: {}
+  categoryDistribution: {}
 })
 const query = ref({
   page: 1,
   size: 12,
   keyword: '',
-  type: undefined as number | undefined
+  category: undefined as string | undefined
 })
 const total = ref(0)
 
@@ -103,9 +104,8 @@ function handleSearch() {
   fetchData()
 }
 
-function formatType(type: number) {
-  const map: Record<number, string> = { 1: '单选', 2: '多选', 3: '判断' }
-  return map[type] || '未知'
+function formatCategory(category?: string) {
+  return category || '未分类'
 }
 
 // Practice Logic
@@ -273,10 +273,13 @@ onMounted(() => {
               @keyup.enter="handleSearch"
             >
           </div>
-          <el-select v-model="query.type" placeholder="全部题型" clearable @change="handleSearch" style="width: 140px">
-            <el-option label="单选题" :value="1" />
-            <el-option label="多选题" :value="2" />
-            <el-option label="判断题" :value="3" />
+          <el-select v-model="query.category" placeholder="全部题型" clearable @change="handleSearch" style="width: 140px">
+            <el-option
+              v-for="category in categoryOptions"
+              :key="category"
+              :label="category"
+              :value="category"
+            />
           </el-select>
         </div>
 
@@ -287,8 +290,8 @@ onMounted(() => {
           <div v-else class="grid">
             <div v-for="item in list" :key="item.id" class="card">
               <div class="card__head">
-                <el-tag size="small" :type="item.questionType === 1 ? '' : (item.questionType === 2 ? 'warning' : 'info')">
-                  {{ formatType(item.questionType) }}
+                <el-tag size="small" effect="light">
+                  {{ formatCategory(item.questionCategory) }}
                 </el-tag>
                 <span class="card__time">{{ new Date(item.updateTime).toLocaleDateString() }}</span>
               </div>
@@ -341,7 +344,7 @@ onMounted(() => {
         
         <div v-if="currentQ" class="modal-body">
           <div class="p-question">
-            <el-tag class="p-tag">{{ formatType(currentQ.questionType) }}</el-tag>
+            <el-tag class="p-tag">{{ formatCategory(currentQ.questionCategory) }}</el-tag>
             <p>{{ currentQ.questionContent }}</p>
           </div>
 

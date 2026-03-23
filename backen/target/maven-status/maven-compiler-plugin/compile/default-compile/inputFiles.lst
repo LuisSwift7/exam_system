@@ -32,6 +32,7 @@ D:\examSystem\backen\src\main\java\com\examsystem\mapper\SysUserMapper.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\student\StudentExamController.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\ExamService.java
 D:\examSystem\backen\src\main\java\com\examsystem\entity\QuestionReview.java
+D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\LoginUserView.java
 D:\examSystem\backen\src\main\java\com\examsystem\service\exam\ExamTakingService.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\dto\StudentExamResponse.java
 D:\examSystem\backen\src\main\java\com\examsystem\controller\StemController.java

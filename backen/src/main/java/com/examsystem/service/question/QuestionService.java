@@ -19,8 +19,8 @@ public class QuestionService {
 
     public IPage<Question> getQuestions(int page, int size, String keyword, Integer type, String category) {
         Page<Question> p = new Page<>(page, size);
-        LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<Question>()
-                .orderByDesc(Question::getCreatedTime);
+        LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByDesc(Question::getCreatedTime);
         
         if (StringUtils.hasText(keyword)) {
             String trimmedKeyword = keyword.trim();
@@ -59,7 +59,9 @@ public class QuestionService {
     }
 
     public void deleteQuestions(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) return;
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
         questionMapper.deleteBatchIds(ids);
     }
 }

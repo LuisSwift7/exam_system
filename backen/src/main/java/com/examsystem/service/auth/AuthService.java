@@ -4,6 +4,7 @@ import com.examsystem.common.BizException;
 import com.examsystem.config.JwtProperties;
 import com.examsystem.controller.dto.LoginRequest;
 import com.examsystem.controller.dto.LoginResponse;
+import com.examsystem.controller.dto.LoginUserView;
 import com.examsystem.controller.dto.RegisterRequest;
 import com.examsystem.entity.SysUser;
 import com.examsystem.service.user.SysUserService;
@@ -49,7 +50,7 @@ public class AuthService {
         "Bearer",
         30 * 60, // 30 minutes in seconds
         15 * 24 * 60 * 60, // 15 days in seconds
-        new LoginResponse.UserView(user.getId(), user.getUsername(), user.getRealName(), user.getRoleCode())
+        new LoginUserView(user.getId(), user.getUsername(), user.getRealName(), user.getRoleCode())
     );
   }
 
@@ -84,7 +85,7 @@ public class AuthService {
           "Bearer",
           30 * 60, // 30 minutes in seconds
           15 * 24 * 60 * 60, // 15 days in seconds
-          new LoginResponse.UserView(userId, username, sysUserService.findById(userId).getRealName(), roleCode)
+          new LoginUserView(userId, username, sysUserService.findById(userId).getRealName(), roleCode)
       );
     } catch (Exception e) {
       throw new BizException(3001, "刷新令牌无效或已过期");

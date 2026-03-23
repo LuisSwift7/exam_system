@@ -19,8 +19,8 @@ public class StudentWrongBookController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer type) {
-        return ApiResponse.ok(wrongBookService.getWrongQuestions(page, size, keyword, type));
+            @RequestParam(required = false) String category) {
+        return ApiResponse.ok(wrongBookService.getWrongQuestions(page, size, keyword, category));
     }
 
     @PostMapping("/{id}/practice")

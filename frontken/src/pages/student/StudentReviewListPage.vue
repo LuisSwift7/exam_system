@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { ElMessage } from 'element-plus'
 import { http } from '../../api/http'
 
+const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const reviews = ref<any[]>([])
@@ -43,8 +44,39 @@ function openReview(item: any) {
   detailVisible.value = true
 }
 
+function normalizeExamId(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === undefined || raw === null || raw === '') {
+    return null
+  }
+  const examId = Number(raw)
+  return Number.isNaN(examId) ? null : examId
+}
+
+function tryOpenReviewFromQuery() {
+  const examId = normalizeExamId(route.query.examId)
+  if (!examId || !reviews.value.length) {
+    return
+  }
+
+  const matchedReview = reviews.value.find(item => Number(item.examId) === examId)
+  if (!matchedReview) {
+    return
+  }
+
+  openReview(matchedReview)
+}
+
 onMounted(() => {
   fetchReviews()
+})
+
+watch(reviews, () => {
+  tryOpenReviewFromQuery()
+}, { flush: 'post' })
+
+watch(() => route.query.examId, () => {
+  tryOpenReviewFromQuery()
 })
 </script>
 
