@@ -1,19 +1,27 @@
 package com.examsystem.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.examsystem.entity.Notification;
+import com.examsystem.entity.SysUser;
 import com.examsystem.mapper.NotificationMapper;
+import com.examsystem.mapper.SysUserMapper;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
 
     @Resource
     private NotificationMapper notificationMapper;
+
+    @Resource
+    private SysUserMapper sysUserMapper;
 
     @Override
     public void createNotification(Long userId, String type, String title, String content, Long relatedId) {
@@ -110,13 +118,33 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void createBulkNotification(List<Long> userIds, String type, String title, String content, Long relatedId) {
-        if (userIds == null || userIds.isEmpty()) {
+        createBulkNotification(userIds, type, title, content, relatedId, false);
+    }
+
+    @Override
+    public void createBulkNotification(List<Long> userIds, String type, String title, String content, Long relatedId, boolean sendToAllStudents) {
+        List<Long> recipientIds = new ArrayList<>();
+        if (userIds != null && !userIds.isEmpty()) {
+            recipientIds.addAll(userIds);
+        }
+
+        if (sendToAllStudents) {
+            List<Long> studentIds = sysUserMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                            .select(SysUser::getId)
+                            .eq(SysUser::getRoleCode, "STUDENT"))
+                    .stream()
+                    .map(SysUser::getId)
+                    .collect(Collectors.toList());
+            recipientIds.addAll(studentIds);
+        }
+
+        if (recipientIds.isEmpty()) {
             return;
         }
-        
+
         // 去重，确保每个学生只收到一条通知
-        Set<Long> uniqueUserIds = new HashSet<>(userIds);
-        
+        Set<Long> uniqueUserIds = new HashSet<>(recipientIds);
+
         for (Long userId : uniqueUserIds) {
             if (userId != null) {
                 createNotification(userId, type, title, content, relatedId);

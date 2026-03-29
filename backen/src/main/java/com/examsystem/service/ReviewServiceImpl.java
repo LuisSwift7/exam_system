@@ -296,6 +296,8 @@ public class ReviewServiceImpl implements ReviewService {
             enrichedItem.setQuestionNo(questionNoMap.get(item.getQuestionId()));
             Question question = questionMap.get(item.getQuestionId());
             enrichedItem.setQuestionContent(question == null ? null : question.getContent());
+            enrichedItem.setQuestionContentImageUrl(question == null ? null : question.getContentImageUrl());
+            enrichedItem.setQuestionOptions(question == null ? Collections.emptyList() : question.getOptions());
             enriched.add(enrichedItem);
         }
 

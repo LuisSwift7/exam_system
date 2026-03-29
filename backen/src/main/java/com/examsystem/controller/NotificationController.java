@@ -61,7 +61,14 @@ public class NotificationController {
 
     @PostMapping("/create")
     public ApiResponse<Void> createNotification(@RequestBody NotificationRequest request) {
-        notificationService.createBulkNotification(request.getUserIds(), request.getType(), request.getTitle(), request.getContent(), request.getRelatedId());
+        notificationService.createBulkNotification(
+                request.getUserIds(),
+                request.getType(),
+                request.getTitle(),
+                request.getContent(),
+                request.getRelatedId(),
+                Boolean.TRUE.equals(request.getSendToAllStudents())
+        );
         return ApiResponse.ok();
     }
     
@@ -72,6 +79,7 @@ public class NotificationController {
         private String title;
         private String content;
         private Long relatedId;
+        private Boolean sendToAllStudents;
         
         // Getters and setters
         public List<Long> getUserIds() {
@@ -103,6 +111,12 @@ public class NotificationController {
         }
         public void setRelatedId(Long relatedId) {
             this.relatedId = relatedId;
+        }
+        public Boolean getSendToAllStudents() {
+            return sendToAllStudents;
+        }
+        public void setSendToAllStudents(Boolean sendToAllStudents) {
+            this.sendToAllStudents = sendToAllStudents;
         }
     }
 

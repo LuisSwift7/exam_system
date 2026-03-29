@@ -14,6 +14,52 @@ const exam = ref<any>(null)
 const review = ref<any>(null)
 const reviewLoading = ref(false)
 
+function normalizeOptions(options: any) {
+  if (Array.isArray(options)) {
+    return options.map((item: any, index: number) => {
+      if (typeof item === 'object' && item !== null) {
+        return {
+          key: item.key || String.fromCharCode(65 + index),
+          value: item.value || '',
+          imageUrl: item.imageUrl || ''
+        }
+      }
+
+      if (typeof item === 'string') {
+        const firstDot = item.indexOf('.')
+        if (firstDot > -1) {
+          return {
+            key: item.slice(0, firstDot).trim(),
+            value: item.slice(firstDot + 1).trim(),
+            imageUrl: ''
+          }
+        }
+        return {
+          key: String.fromCharCode(65 + index),
+          value: item,
+          imageUrl: ''
+        }
+      }
+
+      return {
+        key: String.fromCharCode(65 + index),
+        value: '',
+        imageUrl: ''
+      }
+    })
+  }
+
+  if (typeof options === 'string') {
+    try {
+      return normalizeOptions(JSON.parse(options))
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
 async function fetchDetail() {
   loading.value = true
   try {
@@ -111,6 +157,30 @@ onMounted(async () => {
                   </div>
                   <div class="review-question-content">
                     {{ item.questionContent || '题干缺失' }}
+                  </div>
+                  <img
+                    v-if="item.questionContentImageUrl"
+                    :src="item.questionContentImageUrl"
+                    class="review-question-image"
+                    alt="题目配图"
+                  />
+                  <div v-if="normalizeOptions(item.questionOptions).length" class="review-question-options">
+                    <div
+                      v-for="option in normalizeOptions(item.questionOptions)"
+                      :key="option.key"
+                      class="review-question-option"
+                    >
+                      <span class="review-question-option-key">{{ option.key }}</span>
+                      <div class="review-question-option-body">
+                        <span v-if="option.value" class="review-question-option-text">{{ option.value }}</span>
+                        <img
+                          v-if="option.imageUrl"
+                          :src="option.imageUrl"
+                          class="review-question-option-image"
+                          alt="选项配图"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div class="review-question-comment">
                     {{ item.content }}
@@ -275,6 +345,59 @@ onMounted(async () => {
   color: #1f2937;
   line-height: 1.6;
   margin-bottom: 8px;
+}
+
+.review-question-image {
+  display: block;
+  max-width: 100%;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.review-question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.review-question-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.review-question-option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.review-question-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-question-option-text {
+  color: #475569;
+  line-height: 1.6;
+}
+
+.review-question-option-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
 }
 
 .review-question-comment {

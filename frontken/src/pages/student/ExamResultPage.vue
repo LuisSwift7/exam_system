@@ -241,6 +241,30 @@ onMounted(() => {
               >
                 <div class="exam-review-item-head">第 {{ item.questionNo || '?' }} 题</div>
                 <div class="exam-review-item-question">{{ item.questionContent || '题干暂缺' }}</div>
+                <img
+                  v-if="item.questionContentImageUrl"
+                  :src="item.questionContentImageUrl"
+                  class="exam-review-item-image"
+                  alt="题目配图"
+                />
+                <div v-if="formatOption(item.questionOptions).length" class="exam-review-item-options">
+                  <div
+                    v-for="option in formatOption(item.questionOptions)"
+                    :key="option.key"
+                    class="exam-review-item-option"
+                  >
+                    <span class="exam-review-item-option-key">{{ option.key }}</span>
+                    <div class="exam-review-item-option-body">
+                      <span v-if="option.value" class="exam-review-item-option-text">{{ option.value }}</span>
+                      <img
+                        v-if="option.imageUrl"
+                        :src="option.imageUrl"
+                        class="exam-review-item-option-image"
+                        alt="选项配图"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div class="exam-review-item-content">{{ item.content }}</div>
               </div>
             </div>
@@ -569,6 +593,60 @@ onMounted(() => {
   color: #1f2937;
   font-size: 14px;
   line-height: 1.7;
+}
+
+.exam-review-item-image {
+  display: block;
+  max-width: 100%;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid #ece6db;
+}
+
+.exam-review-item-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.exam-review-item-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.exam-review-item-option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff3e2;
+  color: #9a5a16;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.exam-review-item-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exam-review-item-option-text {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.exam-review-item-option-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #ece6db;
 }
 
 .exam-review-item-content {

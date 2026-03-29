@@ -156,6 +156,56 @@ function getSelectedQuestion(questionId?: number) {
   return examQuestions.value.find((question) => question.id === questionId) || null
 }
 
+function normalizeOptions(options: any) {
+  if (Array.isArray(options)) {
+    return options.map((item: any, index: number) => {
+      if (typeof item === 'object' && item !== null) {
+        return {
+          key: item.key || String.fromCharCode(65 + index),
+          value: item.value || '',
+          imageUrl: item.imageUrl || ''
+        }
+      }
+
+      if (typeof item === 'string') {
+        const firstDot = item.indexOf('.')
+        if (firstDot > -1) {
+          return {
+            key: item.slice(0, firstDot).trim(),
+            value: item.slice(firstDot + 1).trim(),
+            imageUrl: ''
+          }
+        }
+        return {
+          key: String.fromCharCode(65 + index),
+          value: item,
+          imageUrl: ''
+        }
+      }
+
+      return {
+        key: String.fromCharCode(65 + index),
+        value: '',
+        imageUrl: ''
+      }
+    })
+  }
+
+  if (typeof options === 'string') {
+    try {
+      return normalizeOptions(JSON.parse(options))
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
+function getSelectedQuestionOptions(questionId?: number) {
+  return normalizeOptions(getSelectedQuestion(questionId)?.options)
+}
+
 function canSubmit() {
   const hasSummary = !!form.value.summary?.trim()
   const hasQuestionReview = form.value.questionReviews.some((item: any) => item.questionId && item.content?.trim())
@@ -388,11 +438,38 @@ onMounted(async () => {
                     </el-select>
 
                     <div class="question-preview">
-                      {{
-                        item.questionId
-                          ? getSelectedQuestion(item.questionId)?.content || '未找到题目内容'
-                          : '选中题目后，这里会展示题干内容，方便你对照写讲评。'
-                      }}
+                      <template v-if="item.questionId && getSelectedQuestion(item.questionId)">
+                        <div class="question-preview-content">
+                          {{ getSelectedQuestion(item.questionId)?.content || '未找到题目内容' }}
+                        </div>
+                        <img
+                          v-if="getSelectedQuestion(item.questionId)?.contentImageUrl"
+                          :src="getSelectedQuestion(item.questionId)?.contentImageUrl"
+                          class="question-preview-image"
+                          alt="题目配图"
+                        />
+                        <div v-if="getSelectedQuestionOptions(item.questionId).length" class="question-preview-options">
+                          <div
+                            v-for="option in getSelectedQuestionOptions(item.questionId)"
+                            :key="option.key"
+                            class="question-preview-option"
+                          >
+                            <span class="question-preview-option-key">{{ option.key }}</span>
+                            <div class="question-preview-option-body">
+                              <span v-if="option.value" class="question-preview-option-text">{{ option.value }}</span>
+                              <img
+                                v-if="option.imageUrl"
+                                :src="option.imageUrl"
+                                class="question-preview-option-image"
+                                alt="选项配图"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                      <template v-else>
+                        选中题目后，这里会展示题干内容和选项，方便你对照写讲评。
+                      </template>
                     </div>
                   </div>
 
@@ -651,6 +728,66 @@ onMounted(async () => {
   color: #4b5563;
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+.question-preview-content {
+  color: #374151;
+}
+
+.question-preview-image {
+  display: block;
+  max-width: 100%;
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 1px solid #eadfce;
+}
+
+.question-preview-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0e7db;
+}
+
+.question-preview-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.question-preview-option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff3e2;
+  color: #9a5a16;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.question-preview-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.question-preview-option-text {
+  color: #4b5563;
+  line-height: 1.7;
+}
+
+.question-preview-option-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #eadfce;
 }
 
 .dialog-footer {

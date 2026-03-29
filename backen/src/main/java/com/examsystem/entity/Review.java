@@ -25,6 +25,8 @@ public class Review {
         private Long questionId;
         private Integer questionNo;
         private String questionContent;
+        private String questionContentImageUrl;
+        private List<Option> questionOptions;
         private String content;
     }
 }

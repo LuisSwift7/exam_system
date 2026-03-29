@@ -16,6 +16,7 @@ public interface NotificationService {
     void createExamGradedNotification(Long examId, Long studentId);
     void createClassApprovedNotification(Long classId, Long studentId);
     void createBulkNotification(List<Long> userIds, String type, String title, String content, Long relatedId);
+    void createBulkNotification(List<Long> userIds, String type, String title, String content, Long relatedId, boolean sendToAllStudents);
     void deleteNotification(Long id);
     List<Notification> getAllNotifications();
     List<Notification> getAllNotifications(int page, int size);

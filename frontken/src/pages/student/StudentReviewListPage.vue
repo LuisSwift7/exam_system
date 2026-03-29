@@ -44,6 +44,52 @@ function openReview(item: any) {
   detailVisible.value = true
 }
 
+function normalizeOptions(options: any) {
+  if (Array.isArray(options)) {
+    return options.map((item: any, index: number) => {
+      if (typeof item === 'object' && item !== null) {
+        return {
+          key: item.key || String.fromCharCode(65 + index),
+          value: item.value || '',
+          imageUrl: item.imageUrl || ''
+        }
+      }
+
+      if (typeof item === 'string') {
+        const firstDot = item.indexOf('.')
+        if (firstDot > -1) {
+          return {
+            key: item.slice(0, firstDot).trim(),
+            value: item.slice(firstDot + 1).trim(),
+            imageUrl: ''
+          }
+        }
+        return {
+          key: String.fromCharCode(65 + index),
+          value: item,
+          imageUrl: ''
+        }
+      }
+
+      return {
+        key: String.fromCharCode(65 + index),
+        value: '',
+        imageUrl: ''
+      }
+    })
+  }
+
+  if (typeof options === 'string') {
+    try {
+      return normalizeOptions(JSON.parse(options))
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
 function normalizeExamId(value: unknown) {
   const raw = Array.isArray(value) ? value[0] : value
   if (raw === undefined || raw === null || raw === '') {
@@ -191,6 +237,30 @@ watch(() => route.query.examId, () => {
                 <span class="question-chip">第 {{ item.questionNo || '?' }} 题</span>
               </div>
               <div class="question-stem">{{ item.questionContent || '题干暂缺' }}</div>
+              <img
+                v-if="item.questionContentImageUrl"
+                :src="item.questionContentImageUrl"
+                class="question-image"
+                alt="题目配图"
+              />
+              <div v-if="normalizeOptions(item.questionOptions).length" class="question-options">
+                <div
+                  v-for="option in normalizeOptions(item.questionOptions)"
+                  :key="option.key"
+                  class="question-option"
+                >
+                  <span class="question-option-key">{{ option.key }}</span>
+                  <div class="question-option-body">
+                    <span v-if="option.value" class="question-option-text">{{ option.value }}</span>
+                    <img
+                      v-if="option.imageUrl"
+                      :src="option.imageUrl"
+                      class="question-option-image"
+                      alt="选项配图"
+                    />
+                  </div>
+                </div>
+              </div>
               <div class="question-comment">{{ item.content }}</div>
             </article>
           </div>
@@ -454,6 +524,59 @@ watch(() => route.query.examId, () => {
 
 .question-stem {
   color: #1f2937;
+}
+
+.question-image {
+  display: block;
+  max-width: 100%;
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.question-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.question-option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff3e2;
+  color: #9a5a16;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.question-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.question-option-text {
+  color: #475569;
+  line-height: 1.8;
+}
+
+.question-option-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
 }
 
 .question-comment {

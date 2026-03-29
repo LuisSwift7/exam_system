@@ -9,10 +9,11 @@ const list = ref<any[]>([])
 const dialogVisible = ref(false)
 const classes = ref<any[]>([])
 const classesLoading = ref(false)
+const recipientPageSize = 200
 const form = ref({
   title: '',
   content: '',
-  classIds: [],
+  classIds: [] as number[],
   type: 'system'
 })
 
@@ -73,6 +74,56 @@ async function handleAdd() {
   dialogVisible.value = true
 }
 
+async function collectPagedIds(
+  fetchPage: (page: number, size: number) => Promise<any>,
+  readId: (item: any) => number | undefined
+) {
+  const ids: number[] = []
+  let page = 1
+  let total = 0
+
+  do {
+    const res = await fetchPage(page, recipientPageSize)
+    const data = res.data?.data || {}
+    const rows = Array.isArray(data.list) ? data.list : []
+
+    rows.forEach((item: any) => {
+      const id = readId(item)
+      if (typeof id === 'number') {
+        ids.push(id)
+      }
+    })
+
+    total = Number(data.total ?? rows.length)
+    page += 1
+  } while ((page - 1) * recipientPageSize < total)
+
+  return ids
+}
+
+async function fetchAllStudentIds() {
+  return collectPagedIds(
+    (page, size) => http.get('/api/teacher/students', { params: { page, size } }),
+    (student) => student.id
+  )
+}
+
+async function fetchClassStudentIds(classId: number) {
+  return collectPagedIds(
+    (page, size) => http.get(`/api/teacher/classes/${classId}/students`, { params: { page, size } }),
+    (student) => student.studentId
+  )
+}
+
+async function resolveRecipientIds() {
+  if (!form.value.classIds.length) {
+    return fetchAllStudentIds()
+  }
+
+  const studentGroups = await Promise.all(form.value.classIds.map((classId) => fetchClassStudentIds(classId)))
+  return [...new Set(studentGroups.flat())]
+}
+
 async function handleDelete(id: number) {
   try {
     await ElMessageBox.confirm('确认删除该通知？', '警告', { type: 'warning' })
@@ -97,32 +148,16 @@ async function submit() {
       ElMessage.error('请输入通知内容')
       return
     }
-    if (!form.value.classIds || form.value.classIds.length === 0) {
-      ElMessage.error('请选择接收班级')
-      return
-    }
-    
-    // 获取选中班级的所有学生ID
-    const studentIds: number[] = []
-    for (const classId of form.value.classIds) {
-      const res = await http.get(`/api/teacher/classes/${classId}/students`)
-      const students = res.data.data.list || []
-      students.forEach((student: any) => {
-        if (student.studentId) {
-          studentIds.push(student.studentId)
-        }
-      })
-    }
-    
-    // 检查是否有学生
+    const studentIds = await resolveRecipientIds()
+
     if (studentIds.length === 0) {
-      ElMessage.error('所选班级中没有学生')
+      ElMessage.error(form.value.classIds.length ? '所选班级中没有学生' : '暂无可接收学生')
       return
     }
-    
-    // 发送通知
+
     await http.post('/api/notifications/create', {
       userIds: studentIds,
+      sendToAllStudents: form.value.classIds.length === 0,
       type: form.value.type,
       title: form.value.title,
       content: form.value.content
@@ -208,10 +243,13 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="接收班级">
-          <el-select 
-            v-model="form.classIds" 
-            multiple 
-            placeholder="请选择班级（可多选）"
+          <el-select
+            v-model="form.classIds"
+            multiple
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="可留空，可多选"
             style="width: 100%"
             :loading="classesLoading"
           >
@@ -222,6 +260,7 @@ onMounted(() => {
               :value="cls.id"
             />
           </el-select>
+          <div class="form-tip">不选则全体接收</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -318,6 +357,13 @@ onMounted(() => {
 .pagination :deep(.el-pagination__btn:hover) {
   border-color: #10d4a6;
   color: #10d4a6;
+}
+
+.form-tip {
+  color: #69717d;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 8px;
 }
 
 .pagination :deep(.el-pagination__btn:focus) {
